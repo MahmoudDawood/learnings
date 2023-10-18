@@ -87,7 +87,6 @@ if <CONDITION>; then
 |-B |NUMBER 	Display NUMBER of lines before the regular expression match.|
 |-e |	With multiple -e options used, multiple regular expressions can be supplied and will be used with a logical OR.|
 
--------------------------------------------------------------
 ## 2. Scheduling Future Tasks 
 
 ### Deferred user task
@@ -139,7 +138,7 @@ if <CONDITION>; then
       - `d` use dir
       - `D` create dir or empty it if it exists
     - `systemd-tmpfiles --create /etc/tmpfiles.d/......conf` verify configuration settings
---------------------------------------------------------------
+
 ## 3. Tuning system performance
 ### Tuning profiles
 
@@ -159,7 +158,6 @@ if <CONDITION>; then
 - `nice -n 15 sha1sum &` apply a certain nice level
 - `renice -n 19 3521` update existing process nice level
 
--------------------------------------------------------------
 ## 4. ACL
 
 ### ACL Permissions
@@ -173,7 +171,6 @@ if <CONDITION>; then
   - `mask::rw-` masks all permission except owner user 
   - `--set-file=-` use a file to set acl, - means get it from input
 
--------------------------------------------------------------
 ## 5. SELinux Security
 - Can be used via web console
 - `/etc/selinux/config` defaults
@@ -206,7 +203,6 @@ if <CONDITION>; then
   - `-m` for message type
   - `-ts` time
 
--------------------------------------------------------------
 ## 6. Managing basic storage
 ### Partitioning a disk
 **Creating MBR partition**
@@ -255,9 +251,8 @@ if <CONDITION>; then
 #### Swap space priority
 - `UUID=39e2667a-9458-42fe-9665-c5c854605881   swap   swap   pri=4     0 0` the higher the more priority, default: -2
 
---------------------------------------------------------------
 ## 7. Logical volumes
-*Physical Device >> Physical Volume >> Volume Group >> Logical Volume
+*Physical Device >> Physical Volume >> Volume Group >> Logical Volume*
 ### Creating a Logical volume
 1. Prepare the physical device
   - `parted -s /dev/vdb mkpart primary 770MiB 1026MiB`
@@ -286,65 +281,205 @@ if <CONDITION>; then
 - `pvdisplay /dev/..`
 - `vgdisplay vgName`
 - `lvdisplay /dev/..`
--------------------------------------------------------------
-## 11. Network Security
-### Configuring the firewall
+
+### Extending logical volumes
+1. Prepare PD, create PV
+  - `parted -s /dev/vdb mkpart primary 1027MiB 1539MiB`
+  - `parted -s /dev/vdb set 3 lvm on`
+  - `pvcreate /dev/vdb3`
+2. Extend VG
+  - `vgextend vg01 /dev/vdb3`
+  - `vgdisplay vg01`
+3. Extend LV
+  - `lvextend -L +300M /dev/vg01/lv01`
+
+### Reducing a volume group
+**Make a backup**
+1. Move the physical extents. 
+  - `pvmove /dev/vdb3` relocate any physical extents from the physical volume you want to remove to other physical volumes in the volume group
+2. Reduce volume group
+  - `vgreduce vg01 /dev/vdb3`
+
+### Extending a Logical Volume and XFS File System
+1. Verify that the volume group has space available. 
+  - `vgdisplay vg01`
+2. Extend the logical volume. 
+  - `lvextend -L +300M /dev/vg01/lv01` -l: extents, L: MiBs, + adds, else locates it exactly
+3. Extend fs
+  - `xfs_growfs /mnt/data`
+
+- `resize2fs /dev/vg01/lv01` expand the file system to occupy the new extended LV
+
+### Extend a logical volume and swap space
+1. Verify the volume group has space available. 
+2. Deactivate the swap space. 
+  - `swapoff -v /dev/vgname/lvname`
+3. Extend LV
+4.  Format the logical volume as swap space.
+  - `mkswap /dev/vgname/lvname`
+5. Activate swap space 
+  - `swapon -va /dev/vgname/lvname`
+
+## 8. Advanced storage
+### Stratis
+- Located in `/stratis`
+- Uses thin provisioning
+**Devices >> Pool >> File Systems**
+- `yum install stratis-cli stratisd`
+- `systemctl enable --now stratisd`
+- `stratis pool create pool1 /dev/vdb` Create pools of one or more block devices
+- `stratis pool list`
+- `stratis pool add-data pool1 /dev/vdc` add block dev to pool
+- `stratis filesystem create pool1 fs1` create a fs of pool
+- `stratis filesystem list`
+- `stratis filesystem snapshot pool1 fs1 snapshot1` create a snapshot
+- `lsblk --output=UUID /stratis/pool1/fs1` get UUID to use in `/etc/fstab`
+  - `UUID=31b9363b-add8-4b46-a4bf-c199cd478c55 /dir1 xfs defaults,x-systemd.requires=stratisd.service 0 0`
+
+### VDO
+1. Zero Block Elimination
+2. Deduplication
+3. Compression
+
+- `yum install vdo kmod-kvdo`
+- `vdo create --name=vdo1 --device=/dev/vdd --vdoLogicalSize=50G` create a vdo, no size occupies whole physical device.
+- `vdo list`
+- `vdo status --name=vdo1` 
+- `vdostats --human-readable`
+
+## 9. Network-attached storage
+### Mounting NFS Shares
+1. Identify
+  - `mount serverb:/ mountpoint`
+2. Mount point
+  - `mkdir -p mountpoint`
+3. Mount
+  - `mount -t nfs -o rw,sync serverb:/share mountpoint` 
+- `serverb:/share  /mountpoint  nfs  rw,soft  0 0` >> `/etc/fstab` for persistent
+- `unmount mountpoint`
+
+### automounting nfs using automount
+1. `yum install autofs`
+2. `/shares  /etc/auto....` >> master map `/etc/auto.master.d/.....autofs` base of indirect mounts & mount details
+3. `work  -rw,sync  serverb:/shares/work` >> mapping file `/etc/auto....` mount point & option & source location
+4. `systemctl enable --now autofs`
+
+### direct maps
+ maps an nfs share to an existing absolute path mount point. 
+1. `/- /etc/auto....` >> `/etc/auto.master.d/.....autofs` /- is the base directory
+2. `work  -rw,sync  serverb:/shares/work` >> `/etc/auto....` mount point & option & source location
+ 
+### indirect wildcard maps
+to access any one of those subdirectories using a single mapping entry.
+- `*  -rw,sync  serverb:/shares/&`
+
+## 10. controlling the boot process
+**Firmware(UEFI/BIOS) >> bootable device(MBR)>> boot loader(grub2) >> kernel**
+- `systemctl poweroff`
+- `systemctl reboot`
+
+### Systemd Target
+|Target |	Purpose|
+|--------|-------|
+|graphical.target 	|System supports multiple users, graphical- and text-based logins.|
+|multi-user.target 	|System supports multiple users, text-based logins only.|
+|rescue.target |	sulogin prompt, basic system initialization completed.|
+|emergency.target 	|sulogin prompt, initramfs pivot complete, and system root mounted on / read only.|
+
+- `systemctl list-dependencies graphical.target` view dependencies
+- `systemctl list-units --type=target --all` list available targets
+- `systemctl isolate multi-user.target` switch to different target
+  - target must have `AllowIsolate=yes` in it's config, `systemctl cat .....target`
+- `systemctl get-default`
+- `systemctl set-default .....target`
+
+### Selecting a different target at boot time
+1. Boot or reboot the system.
+2. Interrupt the boot loader menu countdown by pressing any key (except Enter which would initiate a normal boot).
+3. Move the cursor to the kernel entry that you want to start.
+4. Press e to edit the current entry.
+5. Move the cursor to the line that starts with linux. This is the kernel command line.
+6. Append systemd.unit=*target*.target. For example, systemd.unit=emergency.target.
+7. Press Ctrl+x to boot with these changes. 
+
+### Resetting the Root Password from the Boot Loader
+1. Append rd.break. With that option, the system breaks just before the system hands control from the initramfs to the actual system. 
+2. Press Ctrl+x to boot with these changes. 
+3. `mount -o remount,rw /sysroot`
+4. `chroot /sysroot`
+5. `passwd root`
+6. `touch /.autorelabel`
+
+### Inspecting logs
+View previously failed boots from journalctl
+- Logs are kept in `/run/log/journal`
+- Store it in `/var/log/jounral`
+  - `Storage=persistent` >> `/etc/systemd/journald.conf`
+- `journalctl -b -1 -p err` inspect logs of previous boot
+
+### Repairing Systemd Boot Issues
+- `systemctl enable debug-shell.service` **Disable it after you're finished**
+- `systemd.unit=rescue.target` or `emergence.target` to kernel cli from boot loader
+- `nofail` option in an entry in the `/etc/fstab` file permits the system to boot even if the mount of that file system is not successful.
+
+## 11. network security
+### configuring the firewall
 - /etc/firewalld
-- Web console
+- web console
 - firewall-cmd
 
-|firewall-cmd commands                               |	Explanation|
+|firewall-cmd commands                               |	explanation|
 |----------------------------------------------------|-------------|
-| --get-default-zone 	| Query the current default zone.|
-| --set-default-zone=ZONE | Set the default zone. This changes both the runtime and the permanent configuration.|
-| --get-zones 	| List all available zones.|
-|--get-active-zones 	|List all zones currently in use (have an interface or source tied to them), along with their interface and source information.
-|--add-source=CIDR [--zone=ZONE] 	|Route all traffic coming from the IP address or network/netmask to the specified zone. If no --zone= option is provided, the default zone is used.
-|--remove-source=CIDR [--zone=ZONE] 	|Remove the rule routing all traffic from the zone coming from the IP address or network/netmask network. If no --zone= option is provided, the default zone is used.
-|--add-interface=INTERFACE [--zone=ZONE] 	|Route all traffic coming from INTERFACE to the specified zone. If no --zone= option is provided, the default zone is used.
-|--change-interface=INTERFACE [--zone=ZONE] |	Associate the interface with ZONE instead of its current zone. If no --zone= option is provided, the default zone is used.
-|--list-all [--zone=ZONE] 	|List all configured interfaces, sources, services, and ports for ZONE. If no --zone= option is provided, the default zone is used.
-|--list-all-zones 	|Retrieve all information for all zones (interfaces, sources, ports, services).
-|--add-service=SERVICE [--zone=ZONE] 	|Allow traffic to SERVICE. If no --zone= option is provided, the default zone is used.
-|--add-port=PORT/PROTOCOL [--zone=ZONE] 	|Allow traffic to the PORT/PROTOCOL port(s). If no --zone= option is provided, the default zone is used.
-|--remove-service=SERVICE [--zone=ZONE] 	|Remove SERVICE from the allowed list for the zone. If no --zone= option is provided, the default zone is used.
-|--remove-port=PORT/PROTOCOL [--zone=ZONE] 	|Remove the PORT/PROTOCOL port(s) from the allowed list for the zone. If no --zone= option is provided, the default zone is used.|
-|--reload 	|Drop the runtime configuration and apply the persistent configuration. |
+| --get-default-zone 	| query the current default zone.|
+| --set-default-zone=zone | set the default zone. this changes both the runtime and the permanent configuration.|
+| --get-zones 	| list all available zones.|
+|--get-active-zones 	|list all zones currently in use (have an interface or source tied to them), along with their interface and source information.
+|--add-source=cidr [--zone=zone] 	|route all traffic coming from the ip address or network/netmask to the specified zone. if no --zone= option is provided, the default zone is used.
+|--remove-source=cidr [--zone=zone] 	|remove the rule routing all traffic from the zone coming from the ip address or network/netmask network. if no --zone= option is provided, the default zone is used.
+|--add-interface=interface [--zone=zone] 	|route all traffic coming from interface to the specified zone. if no --zone= option is provided, the default zone is used.
+|--change-interface=interface [--zone=zone] |	associate the interface with zone instead of its current zone. if no --zone= option is provided, the default zone is used.
+|--list-all [--zone=zone] 	|list all configured interfaces, sources, services, and ports for zone. if no --zone= option is provided, the default zone is used.
+|--list-all-zones 	|retrieve all information for all zones (interfaces, sources, ports, services).
+|--add-service=service [--zone=zone] 	|allow traffic to service. if no --zone= option is provided, the default zone is used.
+|--add-port=port/protocol [--zone=zone] 	|allow traffic to the port/protocol port(s). if no --zone= option is provided, the default zone is used.
+|--remove-service=service [--zone=zone] 	|remove service from the allowed list for the zone. if no --zone= option is provided, the default zone is used.
+|--remove-port=port/protocol [--zone=zone] 	|remove the port/protocol port(s) from the allowed list for the zone. if no --zone= option is provided, the default zone is used.|
+|--reload 	|drop the runtime configuration and apply the persistent configuration. |
 
 ex
 - firewall-cmd --permanent --add-port=82/tcp
-  - firewall-cmd --reload (To activate the permanent setting)
+  - firewall-cmd --reload (to activate the permanent setting)
 
-### SELinux Port Labeling
+### selinux port labeling
 - semanage port -l
 
-- To add a port to an existing port label (type)
--  semanage port -a -t port_label -p tcp|udp PORTNUMBER
+- to add a port to an existing port label (type)
+-  semanage port -a -t port_label -p tcp|udp portnumber
 -                -d [delete]
 -                -m (modify)
 
-- To view local changes to the default policy
+- to view local changes to the default policy
 - semanage port -l -c
 
-IN SELINUX >> sealert -a /var/log/audit/audit.log ....
+in selinux >> sealert -a /var/log/audit/audit.log ....
 
-## 12. Installing RHEL
+## 12. installing RHEL
 
-### TMUX shortcuts 
-press and release Ctrl+B, and then press the number key of the window you want to access. With tmux, you can also use Alt+Tab to rotate the current focus between the windows.
-|Key sequence| 	contents|
+### tmux shortcuts 
+press and release ctrl+b, and then press the number key of the window you want to access. with tmux, you can also use alt+tab to rotate the current focus between the windows.
+|key sequence| 	contents|
 |-----------|-------|
-|Ctrl+Alt+F1 |	Access the tmux terminal multiplexer.
-|Ctrl+B 1 	|When in tmux, access the main information page for the installation process.
-|Ctrl+B 2 	|When in tmux, provide a root shell. Anaconda stores the installation log files in the /tmp directory.
-|Ctrl+B 3 	|When in tmux, display the contents of the /tmp/anaconda.log file.
-|Ctrl+B 4 	|When in tmux, display the contents of the /tmp/storage.log file.
-|Ctrl+B 5 	|When in tmux, display the contents of the /tmp/program.log file.
-|Ctrl+Alt+F6 |	Access the Anaconda graphical interface. 
+|ctrl+alt+f1 |	access the tmux terminal multiplexer.
+|ctrl+b 1 	|when in tmux, access the main information page for the installation process.
+|ctrl+b 2 	|when in tmux, provide a root shell. anaconda stores the installation log files in the /tmp directory.
+|ctrl+b 3 	|when in tmux, display the contents of the /tmp/anaconda.log file.
+|ctrl+b 4 	|when in tmux, display the contents of the /tmp/storage.log file.
+|ctrl+b 5 	|when in tmux, display the contents of the /tmp/program.log file.
+|ctrl+alt+f6 |	access the anaconda graphical interface. 
 
-### Automating RHEL Installation with Kickstart
-* Located at /root/anaconda-ks.cfg or create by Kickstart generator website
-* Ksvalidator package validates kickstart files
+### automating rhel installation with kickstart
+* located at /root/anaconda-ks.cfg or create by kickstart generator website
+* ksvalidator package validates kickstart files
 
 - % software
 - @ package groups
@@ -352,28 +487,28 @@ press and release Ctrl+B, and then press the number key of the window you want t
 - %pre before disk partitioning
 - %post after installation
 
-#### Installation commands
-- url --url="..." (URL Referring to installation media)
-- repo --name="..." --baseurl=... (Additional package for installation, MUST be a valid yum repository)
-- text: Forces a text mode install. 
-- vnc: Allows the graphical installation to be viewed remotely over VNC. 
+#### installation commands
+- url --url="..." (url referring to installation media)
+- repo --name="..." --baseurl=... (additional package for installation, must be a valid yum repository)
+- text: forces a text mode install. 
+- vnc: allows the graphical installation to be viewed remotely over vnc. 
 
-#### Partitioning commands
-- clearpart: Removes partitions from the system prior to creation of new partitions. By default, no partitions are removed.
+#### partitioning commands
+- clearpart: removes partitions from the system prior to creation of new partitions. by default, no partitions are removed.
   - clearpart --all --drives=sda,sdb --initlabel
 
-- part: Specifies the size, format, and name of a partition.
+- part: specifies the size, format, and name of a partition.
   - part /home --fstype=ext4 --label=homes --size=4096 --maxsize=8192 --grow
 
-- autopart: Automatically creates a root partition, a swap partition, and an appropriate boot partition for the architecture. On large enough drives, this also creates a /home partition.
+- autopart: automatically creates a root partition, a swap partition, and an appropriate boot partition for the architecture. on large enough drives, this also creates a /home partition.
 
-- ignoredisk: Controls Anaconda's access to disks attached to the system.
+- ignoredisk: controls anaconda's access to disks attached to the system.
   - ignoredisk --drives=sdc
 
-- bootloader: Defines where to install the bootloader.
+- bootloader: defines where to install the bootloader.
   - bootloader --location=mbr --boot-drive=sda
 
-- volgroup, logvol: Creates LVM volume groups and logical volumes.
+- volgroup, logvol: creates lVM volume groups and logical volumes.
   - part pv.01 --size=8192
   - volgroup myvg pv.01
   - logvol / --vgname=myvg --fstype=xfs --size=2048 --name=rootvol --grow
@@ -448,7 +583,6 @@ Cockpit provides a web console interface for KVM management.
   -If Cockpit is not already running, start and enable it.
     -`systemctl enable --now cockpit.socket`
 
------------------------------------------
 ## 13. Running containers
 
 - podman, which directly manages containers and container images.
