@@ -12,6 +12,7 @@ for VARIABLE in LIST; do
 COMMAND VARIABLE
 done
 ```
+- `for i in $(seq start step endIncluded)`
 
 ### Exit codes
 - 0 >> no error, (1 - 255) >> error
@@ -49,6 +50,8 @@ if <CONDITION>; then
 
 |Option|	Description|
 |-------|-------|
+|^  | Start of line |
+|$  | End of line   |
 |.	|The period (.) matches any single character.|
 |?	|The preceding item is optional and will be matched at most once.|
 |*	|The preceding item will be matched zero or more times.|
@@ -103,7 +106,7 @@ if <CONDITION>; then
 - `-q` specify job queue
 
 ### Schedule recurring user jobs
-- `Minutes Hours Day of month Month Day of week Command  ` order
+- `Minutes Hours Day-of-month Month Day-of-week Command  ` order
 - `crontabl -l` list
 - `crontabl -r` remove all
 - `crontabl -e` edit
@@ -168,7 +171,7 @@ if <CONDITION>; then
   - `-x` delete entry
   - `-R` recursive
   - `u:user:perm,g:group:perm`
-  - `mask::rw-` masks all permission except owner user 
+  - `mask::rw-` masks all maximum permissions except owner user 
   - `--set-file=-` use a file to set acl, - means get it from input
 
 ## 5. SELinux Security
@@ -188,7 +191,7 @@ if <CONDITION>; then
   - `-a` add
   - `-d` delete
   - `-l` list
-- `semanage fcontext -a -t httpd_sys_content_t '/dir(/.*)?'` + `restorecon -Rv /dir` to ensure all files have to correct context
+- `semanage-fcontext -a -t httpd_sys_content_t '/dir(/.*)?'` + `restorecon -Rv /dir` to ensure all files have to correct context
 
 ### SELinux booleans
 - `getsebool -a`
@@ -278,9 +281,9 @@ if <CONDITION>; then
   - `pvremove /dev/vdb2 /dev/vdb1`
 
 ### Reviewing LVM Status Information
-- `pvdisplay /dev/..`
-- `vgdisplay vgName`
-- `lvdisplay /dev/..`
+- `pvdisplay /dev/..` OR `pvs`
+- `vgdisplay vgName` OR `vgs`
+- `lvdisplay /dev/..` OR `lvs`
 
 ### Extending logical volumes
 1. Prepare PD, create PV
@@ -579,7 +582,7 @@ user --name=jdoe --gecos="John Doe" --groups=admins --password=changeme --plaint
 #### Managing virtual machines with cockpit
 Cockpit provides a web console interface for KVM management. 
 
-- yum install cockpit-machine
+- `yum install cockpit-machine`
   -If Cockpit is not already running, start and enable it.
     -`systemctl enable --now cockpit.socket`
 
