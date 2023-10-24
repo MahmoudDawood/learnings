@@ -1,18 +1,22 @@
 # Kubernetes for the Absolute Beginners
+
 Open-source container orchestration system for automating software deployment, scaling, and management.
   - Uses `kubectl` (Kubernetes cli tool)
+    - `explain OBJ` explains a kubernetes object
     - `create -f YAML-FILE` create any Kubernetes object from yml file
     - `apply -f YAML-FILE` apply changes in yaml file to Pod
     - `run POD-NAME` deploys a container by creating a POD
       - `--image=IMG-SRC`
       - `--dry-run=client -o yaml > FILE-NAME.yaml` *Automatically* create .yaml file for the specified pod
-    - `edit pod POD-NAME` edits the long Pod description
-    - `describe pod POD-NAME` provides detailed info on a POD
+    - `edit` opens the long running configuration (In memory file by kubernetes)
+      - `pod` or `node` or `replicationcontroller` or `replicaset`
     - `get`
-      - `pods` or `nodes` or `replicationcontroller` or `replicaset`
+      - `pod` or `node` or `replicationcontroller` or `replicaset`
         - `-o wide` more info
-    - `delete`
-      - `pods` or `nodes` or `replicationcontroller` or `replicaset`
+    - `describe` by object name
+      - `pod` or `node` or `replicationcontroller` or `replicaset`
+    - `delete` by object name or file
+      - `pod` or `node` or `replicationcontroller` or `replicaset`
     - `replace -f YAML-FILE` replace a kubernetes object
     - `scale --replicas=N NAME-OR-FILE` scale a replicaset
     - `cluster-info`
@@ -70,11 +74,13 @@ apiVersion: apps/v1
 kind: ReplicaSet
 SAME AS REPLICACONTROLLER
 spec:
-  template: POD-TEMP
+  template: POD-TEMP (metadata + spec)
   replicas: 
   selector: (Mandatory)
     matchLabels:
       key: value 
 ```
-- `kubectl delete replicaset YAML-FILE` also deletes it's PODs
-- `kubectl scale --replicase=N -f YAML-FILE` scales up the app without modifying the original yaml file
+- `kubectl delete replicaset REPLICA-NAME` also deletes it's PODs
+- Scale replicaset
+  - `kubectl scale --replicaset=N -f YAML-FILE` scales the app without modifying the original yaml file
+  - `kubectl edit replicaset REPLICA-NAME` Opens kubernetes in-memory file to edit running configuration
