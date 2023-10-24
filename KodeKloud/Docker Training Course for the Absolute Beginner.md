@@ -1,7 +1,10 @@
 # Docker Training Course for the Absolute Beginner
-
- - `version`
- - `pull`
+- `docker`
+  - `version`
+  - `login`
+  - `pull`
+  - `build SRC -t ACCOUNT/IMAGE-NAME` Create the image **Must be logged in first `docker login`**
+  - `push ACCOUNT/IMAGE-NAME` Push image to docker hub **Must have a tag name**
   - `run` form `hub.docker.com` *Pulls it if image not found*
     - `--name NAME`
     - `-u USER` 
@@ -26,9 +29,10 @@
     - `-a` and remove all images not being used by a container
   - `inspect` *more info on a docker object*
   - `rmi` remove an image **Delete it's using containers first**
-  - `exec CONTAINER COMMAND`
-  - `login`
-
+  - `exec CONTAINER COMMAND` execute a command on a container
+  - `docker-compose up` runs the below `docker-compose.yml` file
+  - `network create --driver bridge  --subnet nn.nn.nn.nn/nn NETWORK-NAME`
+  - `network ls`
 ## Creating an image
 Docker file consists of [Instruction Argument], uses *caching* and *layered architecture*
 ```
@@ -106,7 +110,7 @@ To use a linux container on windows
 
 ## Container orchestration 
 1. Docker swarm
-  - Consists of a master swarm manager and worker nodes (both are called a cluster)
+  - consists of a master swarm manager and worker nodes (both are called a cluster)
   - `docker swarm init` initialize swarm manager
   - `docker service create --replicas=n img-name` create service(distributed container) on nodes across a cluster(group of nodes)
 2. Kubernetes
