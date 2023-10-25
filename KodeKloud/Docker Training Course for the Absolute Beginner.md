@@ -74,7 +74,7 @@ services: (@n >= 2) container-name
   - `docker run -v VOLUME-NAME:CONTAINER-DIR`
 #### Bind mounting 
   - `docker run -v LOCAL-DIR:CONTAINER-DIR`
-  y *Preferred verbose way*
+  - `docker run --mount type=bind,source=/LOCAL-DIR,target=/CONTAINER-DIR IMG` *Preferred verbose way*
 
 ## Networking
 1. Bridge: (Default) Usually @172.17.0.1
