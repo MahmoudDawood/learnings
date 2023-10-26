@@ -26,7 +26,7 @@ Open-source container orchestration system for automating software deployment, s
       - `status`
       - `history`
       - `undo` rollback a deployment
-
+  - `minikube service SERVICE --url` gets url for service
 ##  Docker vs ContainerD
 - Docker is unsupported by kubernetes anymore
 - ContainerD uses:
@@ -132,9 +132,9 @@ Creates internal POD accessible on a port on the node
     selector:
       key: value (to specify pods linked to the service)
   ```
-  - `kubectl service SERVICE --url` gets url for service
+  - `minikube service SERVICE --url` gets url for service
 
-### 2. ClusterIP
+### 2. ClusterIP (Default)
 - Create a virtual IP inside cluster to enable communication between services
 - ![ClusterIP Diagram](https://miro.medium.com/v2/resize:fit:1200/1*dLlC4L2qpImyZS6gOntUjg.png)
 ```
@@ -151,7 +151,11 @@ Creates internal POD accessible on a port on the node
 - ![clusterip diagram](https://www.ionos.co.uk/digitalguide/fileadmin/digitalguide/schaubilder/overview-of-how-kubernetes-load-balancers-work.png)
 ```
 spec:
-  type: loadbalancer
+  type: LoadBalancer
 ```
 
-## Microservice Architecture
+## Kubeadm
+Helps setup a multi node cluster networking & security + **Vagrant** to build and maintain VMs
+- `kubeadm` bootstrap the cluster
+- `kubelet` component that runs all machines on cluster, start pods and containers
+- `kubectl` command line util to talk to cluster
