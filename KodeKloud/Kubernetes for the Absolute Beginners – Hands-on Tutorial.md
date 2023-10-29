@@ -9,7 +9,10 @@ Open-source container orchestration system for automating software deployment, s
     - `apply -f YAML-FILE` apply changes in yaml file to Pod
     - `run POD-NAME` deploys a container by creating a POD
       - `--image=IMG-SRC`
-      - `--dry-run=client -o yaml > FILE-NAME.yaml` *Automatically* create .yaml file for the specified pod
+      - `--port=PORT`
+      - `-l key=value` specify label
+      - `--dry-run=client -o yaml > FILE-NAME.yaml` *Automatically* create .yaml file for the specified pod, `--dry-run=client` ensures that command is right and resource can be created, `-o yaml` outputs resource definition in yaml extension
+      - `--expose` automatically create a ClusterIP service and exposes the pod
     - `get`
       - `pod` or `node` or `replicationcontroller` or `replicaset` or `deployment` or `service` or **`all`**
     - `edit` opens the long running configuration (In memory file by kubernetes)
@@ -20,6 +23,7 @@ Open-source container orchestration system for automating software deployment, s
     - `delete` by object name or file
       - `pod` or `node` or `replicationcontroller` or `replicaset`
     - `replace -f YAML-FILE` replace a kubernetes object
+    - `expose pod POD-NAME --port=PORT --name=SERVICE-NAME` create a ClusterIP service exposes an application on a port
     - `scale --replicas=N NAME-OR-FILE` scale a replicaset
     - `cluster-info`
     - `rollout` see status
@@ -34,7 +38,8 @@ Open-source container orchestration system for automating software deployment, s
   - `nerdctl`: a cli to replace docker utilities 
 - Kubernetes:
   - CRI: Container Runtime Interface for any container runtime
-  - OCI: Open Container Initiative for unified images (imagespec) and container runtime (runtimespec)
+  - OCI: Open Container Initiative ior unified images (imagespec) and container runtime (runtimespec)
+- ubernetes ues:
   - `crictl`: a separate cli to inspect and debug CRI compatible runtime
 
 ## YAML in Kubernetes
@@ -42,7 +47,7 @@ Creating object with YAML files
 ```
 apiVersion: {v1, v1, apps/v1, apps/v1}
 kind: {Pod, Service, ReplicaSet, Deployment}
-metadata:
+metadata: (includes only special properties)
   name:
   labels:
     key: value
@@ -127,7 +132,7 @@ Creates internal POD accessible on a port on the node
     type: NodePort
     ports:
       - targetPort: 80
-        port: 80 (The only mandatory field)
+        port: 80 (The only mandatory field, Assumes targetPort to be the same, automatically sets nodePort to a free port)
         nodePort: 30008
     selector:
       key: value (to specify pods linked to the service)
@@ -154,7 +159,7 @@ spec:
   type: LoadBalancer
 ```
 
-## Kubeadm
+## ubeadm
 Helps setup a multi node cluster networking & security + **Vagrant** to build and maintain VMs
 - `kubeadm` bootstrap the cluster
 - `kubelet` component that runs all machines on cluster, start pods and containers

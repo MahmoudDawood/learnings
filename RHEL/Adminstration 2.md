@@ -667,5 +667,5 @@ Create a unit file for existing container
   2. Stop and delete the container, because systemd expects it to be absent
     - `--name container_name` specifies the name of an existing container
     - `--files` generates the unit file in the current directory.
-    - `--new` configure the systemd service to create the container when the service starts and delete it when the service stops.
+    - `--new` configure the systemd service to create the continer when the service starts and delete it when the service stops.
   
