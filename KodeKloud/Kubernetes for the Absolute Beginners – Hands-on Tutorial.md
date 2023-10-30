@@ -2,6 +2,7 @@
 
 Open-source container orchestration system for automating software deployment, scaling, and management.
   - Uses `kubectl` (Kubernetes cli tool)
+    - **`--help` for help with rest of command**
     - `explain OBJ` explains a kubernetes object
     - `create`
       - `-f YAML-FILE` create any Kubernetes object from yml file
@@ -10,11 +11,14 @@ Open-source container orchestration system for automating software deployment, s
     - `run POD-NAME` deploys a container by creating a POD
       - `--image=IMG-SRC`
       - `--port=PORT`
-      - `-l key=value` specify label
+      - `--labels="KEY=VALUE"` OR `-l key=value` specify label
       - `--dry-run=client -o yaml > FILE-NAME.yaml` *Automatically* create .yaml file for the specified pod, `--dry-run=client` ensures that command is right and resource can be created, `-o yaml` outputs resource definition in yaml extension
-      - `--expose` automatically create a ClusterIP service and exposes the pod
+      - `--command -- COMMANDS` Don't specify any kubectl arguments after --command (use it at the end)
+      - `--expose` automatically create a ClusterIP service and exposes the pod, we can specify name and port by `--port PORT --name NAME`
     - `get`
       - `pod` or `node` or `replicationcontroller` or `replicaset` or `deployment` or `service` or **`all`**
+        - `--selector KEY=VALUE`
+        - `--watch` watch changes in realtime
     - `edit` opens the long running configuration (In memory file by kubernetes)
       - `pod` or `node` or `replicationcontroller` or `replicaset`
         - `-o wide` more info
@@ -23,6 +27,7 @@ Open-source container orchestration system for automating software deployment, s
     - `delete` by object name or file
       - `pod` or `node` or `replicationcontroller` or `replicaset`
     - `replace -f YAML-FILE` replace a kubernetes object
+      - `--force` kills then recreates object
     - `expose pod POD-NAME --port=PORT --name=SERVICE-NAME` create a ClusterIP service exposes an application on a port
     - `scale --replicas=N NAME-OR-FILE` scale a replicaset
     - `cluster-info`
