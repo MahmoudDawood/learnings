@@ -37,7 +37,7 @@ Monitors and controls the state of the system (Brain)
 - Replication Controller
   - Monitors replicaSets ensuring desired number of PODs is available at all times
 
-#### Kube Schedular
+#### Kube Scheduler
 Schedules the right node to place a container on by Kubelet. (Crane)
 1. Filters nodes
 2. Ranks nodes
@@ -98,7 +98,7 @@ metadata:
 Schedules the right node to place a container. (Crane)
 - If kubeadm is used, it's created as a pod in the `kube-system` namespace
 ### Manual scheduling
-Without a schedular
+Without a scheduler
 ```
 spec:
   nodeName: NODE
@@ -176,7 +176,7 @@ spec:
     resource:
       requests:
         memory: "4Gi" (default bytes, Gi Gibibytes, G Gigabytes,.....)
-        cpu: 2 (1m (milli), ....)
+        cpu: 2 (1m (milli cores) - ....)
       limits:
         memory:
         cpu:
@@ -254,3 +254,189 @@ Without a Master, the kubelet can deploy, update, delete automatically pods from
   2. In `kubelet.service` file, provide `--config` file, in config file provide `staticPodPath:` with the directory path.
     - Usually the config file is in `/var/lib/kubelet/config.yaml`
 - `docker ps` to view static pods, if don't have kubernetes cluster yet
+
+#### Multiple Schedulers
+Configure multiple custom schedulers
+- Deploy additional scheduler as a pod:
+```
+(POD)
+spec:
+  containers:
+  - command:
+    - kube-scheduler
+    - --address=
+    - --kubeconfig=/etc/kubernetes/scheduler.conf
+    - --config=/etc/kubernetes/SCHEDULER-CONFIG-FILE
+```
+- Scheduler configuration file
+```
+apiVersion: kubescheduler.conf.k8s.io/v1
+kind: KubeSchedulerConfiguration
+profiles:
+  - schedulerName: 
+leaderElection: (In case it runs on multiple master nodes for HA, only one can be active at a time)
+  leaderElect:
+```
+- Pod to run scheduler
+```
+spec:
+  schedulerName:
+```
+- `kubectl logs SCHEDULER-NAME` view scheduler logs
+
+#### Scheduler Profiles
+Configures multiple profiles within a single schedular configuration file, can be configured to work differently.
+```
+apiVersion: kubescheduler.conf.k8s.io/v1
+kind: KubeSchedulerConfiguration
+profiles:
+  - schedulerName: 
+    plugins:
+      EXTENSION:
+        disabled:
+          - name:
+        enabled:
+          - name:
+  - schedulerName:
+    ....
+```
+
+- Scheduling Plugins: to schedule a pod 
+  - Scheduling Queue: (PrioritySort) we can configure a Priority type object, specify it's value, use it's name to give pods a priority
+  - Filtering: (NodeResourceFit, NodeName -filters specified nodeName property in pod definition-, NodeUnschedulable -filters Unschedulable nodes flag set to true)
+  - Scoring: (NodeResourceFit, ImageLocality -higher score for nodes where images are located)
+  - Binding: (DefaultBinder)
+- Extension Points: extends plugins for each phase some examples:
+  - Scheduling Queue: (queueSort)
+  - Filtering: (filter)
+  - Scoring: (score)
+  - Binding: (bind)
+
+### Logging and Monitoring
+#### Monitor Cluster Components
+Many additional tools help monitor kubernetes cluster components
+- METRICS SERVER:
+  - In-memory storage, no historical data stored on disk
+  - `kubelet` uses `cAdvisor` to send performance metrics through kubelet apit to METRICS SERVER
+  - `minikube addons enable metrics-server` if using minikube OR Download from [GitHub](https://github.com/kodekloudhub/kubernetes-metrics-server) and create it's components
+  - `kubectl top` to get CPU & memory usage
+    - `pod` or `node`
+
+#### Application logs
+- `kubernetes logs POD-CONF-FILE`
+  - `-f` option to stream logs live
+  - Must specify container name if there's multiple containers on the same pod
+
+## Application Lifecycle Management
+#### Rolling updates and Rollbacks
+Deployment >> Rollout >> Revision
+1. Recreate: Destroy all of instances and redeploy them
+2. Rolling Update: (Default) take down and recreate instances one by one
+- `kubectl rollout status DEPLOYMENT`
+- `kubectl rollout history DEPLOYMENT`
+- `kubectl rollout undo DEPLOYMENT`
+
+#### Commands and Arguments
+* For a custom full command to run on the image deployment, create your own image with:
+  - `CMD ["sleep", "10"]` **always separate arguments**
+* For a command to run at startup
+  - `ENTRYPOINT ["sleep"]` specify the time argument after the docker run command, can be overridden while running the container by specifying `--entrypoint ENTRYPOINT`
+* For a combination of default command + default arguments
+  - `ENTRYPOINT ["sleep"] \ CMD ["5"]` where the 5 acts as a default parameter if none is provided
+- The above image configuration can be overridden in the pod
+  - `args` >> `CMD`, `command` >> `ENTRYPOINT`  under the `spec.containers` container specification
+
+#### Environment Variables
+```
+spec:
+  - name:...
+    env: (OR) envFrom: (List of configuration maps)
+    - name:
+      value: (OR) valueFrom:
+                    configMapKeyRef: (OR) secretKeyRef: 
+                      name: CONFIG-NAME
+                      key: KEY
+```
+#### ConfigMaps
+Manage configuration data centrally.
+1. Create ConfigMap
+2. Use it in pods
+- `kubectl get configmaps`
+- `kubectl create configmap NAME` Imperative approach
+  - `--from-literal=KEY=VALUE` OR `--from-file=FILE`
+- `kubectl create -f CONFIG-FILE` Declarative approach
+  - ```
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+    data:
+      key:value
+  
+#### Secrets
+Store sensitive information in an *encoded* format, (Same as ConfigMap)
+1. Create the secret
+  - `kubectl create secret generic NAME` Imperative approach, generic is the default secret type
+    - `--from-literal=KEY=VALUE` OR `--from-file=FILE`
+  - `kubectl create -f SECRET-FILE` Declarative approach
+    - ```
+      apiVersion: v1
+      kind: Secret 
+      metadata:
+      data:
+        key: encoded-value
+2. Inject it into pod
+  - ```
+    spec:
+      - .....
+        envFrom: (List of configuration maps)
+          secretKeyRef: 
+            name: SECRET-NAME
+- `echo -n 'secret' | base64` to encode secret before storing it in file
+- `kubectl get secret NAME -o yaml` to view the secret values
+- `echo -n 'secret' | base64 --decode` to decode a secret 
+- Notes
+  - Secrets are encoded NOT encrypted
+  - Secrets are not encrypted in ETCD, we have to enable encryption at rest
+  - Secrets are available to anyone who can create pods/deployments in namespace
+    - Consider Role Based Access Control (RBAC)
+  - Consider 3rd party secret providers 
+
+### Enable Encryption at rest
+#### View secrets from etcd
+```
+ETCDCTL_API=3 etcdctl \
+   --cacert=/etc/kubernetes/pki/etcd/ca.crt   \
+   --cert=/etc/kubernetes/pki/etcd/server.crt \
+   --key=/etc/kubernetes/pki/etcd/server.key  \
+   get /registry/secrets/default/SECRET-TO-SEE | hexdump -C
+```
+- Create `EncryptionConfiguration` object file, pass it as an option
+```
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+  - resources:
+      - secrets
+      - configmaps
+    providers:
+      - aescbc:
+          keys:
+            - name: key1
+              secret: <BASE 64 ENCODED SECRET>
+```
+- `head -c 32 /dev/urandom | base64` generate a random key
+- to use the encryption configuration >> `/etc/kubernetes/manifests/kube-apiserver.yaml`
+  - add the encryption provider as command `--encryption-provider-config=/etc/kubernetes/enc/enc.yaml` Destination of the encryption configuration
+  - Add mounts and volume mounts
+  -  ```
+      volumeMounts:
+      - name: enc                           # add this line
+        mountPath: /etc/kubernetes/enc      # add this line
+        readOnly: true                      # add this line
+    volumes:
+    ...
+    - name: enc                             # add this line
+      hostPath:                             # add this line
+        path: /etc/kubernetes/enc           # add this line
+        type: DirectoryOrCreate 
+- `kubectl get secrets --all-namespaces -o json | kubectl replace -f -` Ensure all old data are encrypted

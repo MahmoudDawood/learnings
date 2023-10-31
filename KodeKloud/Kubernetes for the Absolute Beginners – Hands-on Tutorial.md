@@ -16,7 +16,7 @@ Open-source container orchestration system for automating software deployment, s
       - `--command -- COMMANDS` Don't specify any kubectl arguments after --command (use it at the end)
       - `--expose` automatically create a ClusterIP service and exposes the pod, we can specify name and port by `--port PORT --name NAME`
     - `get`
-      - `pod` or `node` or `replicationcontroller` or `replicaset` or `deployment` or `service` or **`all`**
+      - `pod` or `node` or `replicationcontroller` or `replicaset` or `deployment` or `service` or **`event`** or **`all`**
         - `--selector KEY=VALUE`
         - `--watch` watch changes in realtime
     - `edit` opens the long running configuration (In memory file by kubernetes)
@@ -36,6 +36,7 @@ Open-source container orchestration system for automating software deployment, s
       - `history`
       - `undo` rollback a deployment
   - `minikube service SERVICE --url` gets url for service
+  - `logs OBJ-NAME`
 ##  Docker vs ContainerD
 - Docker is unsupported by kubernetes anymore
 - ContainerD uses:
@@ -102,7 +103,7 @@ spec:
   - `kubectl edit replicaset REPLICA-NAME` Opens kubernetes in-memory file to edit running configuration
 
 ## Deployment
-Enable declarative updates to Pods and ReplicaSets
+Enable declarative updates to Pods and ReplicaSets aka `deploy`
 - Same YAML as a ReplicaSet where `kind: Deployment`
 - On creation it triggers a *Rollout* which create a *Revision*   
 - `kubectl create -f DEPLOYMENT --record` records the change cause to be displayed in the history entry
