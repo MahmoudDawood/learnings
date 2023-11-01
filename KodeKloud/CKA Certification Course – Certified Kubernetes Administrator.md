@@ -1,5 +1,38 @@
 # CKA Certification Course – Certified Kubernetes Administrator
 [GitHub Repo](https://github.com/kodekloudhub/certified-kubernetes-administrator-course)
+- `./etcdctl` more info
+  - `--version`
+  - `set key value` or `put` in v3
+  - `get key`
+  - `backup` or `snapshot save` in v3
+  - `cluster-health` or `endpoint health`
+- `export ETCDCTL_API=3 ./etcdctl CMD` switch command to v3
+- `kubectl get ns` or `--no-headers | wc -l`
+- `kubectl create namespace NAMESPACE` or by file definetion
+- OBJ-NAME.NAMESPACE.OBJ.DOMAIN (FQDN: Fully Qualified Domain Name) default domain is cluster.local
+- `kubectl get pods --namespace=NAMESPACE` use namespace flag to create pod in another namespace other than default & Can be specified in Pod definition file or `-n NAMESPACE`
+6379
+- `kubectl config set-context $(kubectl config current-context) --namespace=NAMESPACE` set the context namespace
+- `kubectl get pods --all-namespace` OR `kubectl get pods -A`
+- `kubectl taint nodes NODE KEY=VALUE:TAINT-EFFECT`
+- `kubectl label nodes NODE KEY=VALUE` @Node
+- `kubectl get daemonsets`
+- `kubectl logs OBJ-OR-FILE` view object logs
+  - `-c CONTAINER` to specify container logs inside pod
+  - `minikube addons enable metrics-server` if using minikube OR Download from [GitHub](https://github.com/kodekloudhub/kubernetes-metrics-server) and create it's components
+  - `kubectl top` to get CPU & memory usage
+    - `pod` or `node`
+- `kubectl get configmaps`
+- `kubectl create configmap NAME` Imperative approach, same for `secret`
+  - `--from-literal=KEY=VALUE` OR `--from-file=FILE`
+- `kubectl create -f CONFIG-FILE` Declarative approach
+- `echo -n 'secret' | base64` to encode secret before storing it in file
+- `kubectl get secret NAME -o yaml` to view the secret values
+- `echo -n 'secret' | base64 --decode` to decode a secret 
+- `head -c 32 /dev/urandom | base64` generate a random key
+- `kubectl get secrets --all-namespaces -o json | kubectl replace -f -` Ensure all old data are encrypted
+- `kubectl ......... -- ARGS` For non-kubectl arguments
+- `kubectl exec -it POD -- COMMAND` execute a command in a pod
 
 ### Cluster Architecture
 - Master: Manage, plan, schedule, monitor Nodes
@@ -440,3 +473,61 @@ resources:
         path: /etc/kubernetes/enc           # add this line
         type: DirectoryOrCreate 
 - `kubectl get secrets --all-namespaces -o json | kubectl replace -f -` Ensure all old data are encrypted
+
+#### Multi Container Pod
+In microservice, we may want services functionality to work together, but developed and deployed separately.
+- Design Patterns: Discussed in CKAD course
+  - Sidecar
+  - Adapter
+  - Ambassador
+
+
+#### initContainers
+Task runs once when pod is first created, or a process that waits for another service to be up before starting application.
+- Must run to completion before the application starts, or it restarts repeatedly.
+```
+spec:
+  containers:
+  initContainers:
+```
+
+## Cluster Maintenance
+### Node Upgrade
+- `kube-controller-manager --pod-eviction-timeout=50m0s` pod evection timeout default to 5min
+- `kubectl drain NODE` marks node as unschedulable, pods are evicted to running nodes
+- `kubectl cordon NODE` mark node as unschedulable, does not terminate running pods
+- `kubectl uncordon NODE` remove cordon
+### Cluster Upgrade
+#### Kubernetes Versions
+- vMAJOR.MINOR.PATCH
+  - Core controlplance components have same version of kuberentes except ETCD cluster, CoreDNS as they're external components.
+  - kube-apiserver @X
+  - Control-manager, kube-schedular @X-1 | X
+  - kubelet, kube-proxy @X | X-1 | X-2
+  - kubectl @X | X-1 | X+1
+- Kubernetes support the last 3 minor version only
+- I'ts advised to upgrade one version at a time
+- Using kubeadm
+  - **kubeadm doesn't install or upgrade kubelets**
+  - `kubeadm upgrade plan` to see all details about upgrading
+  - `kubeadm upgrade apply VERSION` to upgrade
+  1. Update kubeadm clusters, run commands from [guide](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
+    - `kubeadm upgrade plan`
+    - `sudo kubeadm upgrade apply VERSION`
+  2. Update kubelets
+    - `kubectl drain NODE --ignore-daemonsets` drain node
+    - Upgrade kubelet and kubectl
+    - Restart kubelet
+    - Uncordon node
+  3. Upgrade worker nodes
+
+1. Upgrade kubeadm
+2. Upgrade master components
+3. Upgrade kubectl & kubectl
+- `kubectl drain NODE`
+- `apt update`
+- `apt-get install kubeadm=1.27.0-00`
+- `kubeadm upgrade apply v1.27.0`, for worker nodes: `kubeadm upgrade node`
+- `apt-get install kubelet=1.27.0-00 `
+- `systemctl daemon-reload`
+- `systemctl restart kubelet`
