@@ -34,6 +34,12 @@
 - `kubectl ......... -- ARGS` For non-kubectl arguments
 - `kubectl exec -it POD -- COMMAND` execute a command in a pod
 
+  - `config`
+    - `view` view all configured clusters, **kubectl** must be installed
+    - `use-context CLUSTER`
+
+- `etcdctl member list` to see all nodes that are a part of this ETCD server, *pass the flags to connect to the server whenever you use `etcdctl`*
+
 ### Cluster Architecture
 - Master: Manage, plan, schedule, monitor Nodes
 - Worker Nodes: Hosts application as container
@@ -282,11 +288,14 @@ spec:
 Without a Master, the kubelet can deploy, update, delete automatically pods from a directory files, used to deploy controlplane components.
 - Can be viewed as a copy by kube-apiserver, but cannot delete or modify them.
 - It's pod name ends with `-controlplane` as it is it's node name
+- Default definition files are in `/etc/kuberenets/manifests`
 - Set static directory
   1. In `kubelet.service` file, directory is set with property `--pod-manifest-path`
   2. In `kubelet.service` file, provide `--config` file, in config file provide `staticPodPath:` with the directory path.
     - Usually the config file is in `/var/lib/kubelet/config.yaml`
 - `docker ps` to view static pods, if don't have kubernetes cluster yet
+- Or have a look at `kube-apiserver` configuration, if it points to internal IP address or local host it's stacked, else if it's an external IP address, then it's using an external ETCD server
+- `ps -ef | grep OBJ` to view running objects
 
 #### Multiple Schedulers
 Configure multiple custom schedulers
@@ -509,25 +518,77 @@ spec:
 - I'ts advised to upgrade one version at a time
 - Using kubeadm
   - **kubeadm doesn't install or upgrade kubelets**
-  - `kubeadm upgrade plan` to see all details about upgrading
-  - `kubeadm upgrade apply VERSION` to upgrade
-  1. Update kubeadm clusters, run commands from [guide](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
-    - `kubeadm upgrade plan`
-    - `sudo kubeadm upgrade apply VERSION`
-  2. Update kubelets
-    - `kubectl drain NODE --ignore-daemonsets` drain node
-    - Upgrade kubelet and kubectl
-    - Restart kubelet
-    - Uncordon node
-  3. Upgrade worker nodes
+  - `kubeadm upgrade plan` see all details about upgrading
+  - `kubeadm upgrade apply VERSION` upgrade master components
+  1. Upgrade kubeadm, run commands from [guide](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
+    - `kubectl drain NODE --ignore-daemonsets`
+    - `apt update`
+    - `apt-get install kubeadm=1.27.0-00`
+  2. Upgrade master components
+    - `kubeadm upgrade apply v1.27.0`, for worker nodes: `kubeadm upgrade node`
+  3. Upgrade kubelet & kubectl
+    - `apt-get install kubelet=1.27.0-00 `
+    - `systemctl daemon-reload`
+    - `systemctl restart kubelet`
+    - `kubectl uncordon NODE`
+  4. Upgrade same for worker nodes
 
-1. Upgrade kubeadm
-2. Upgrade master components
-3. Upgrade kubectl & kubectl
-- `kubectl drain NODE`
-- `apt update`
-- `apt-get install kubeadm=1.27.0-00`
-- `kubeadm upgrade apply v1.27.0`, for worker nodes: `kubeadm upgrade node`
-- `apt-get install kubelet=1.27.0-00 `
-- `systemctl daemon-reload`
-- `systemctl restart kubelet`
+### Backup and restore
+1. Using declarative way, keeping configuration file in a cloud storage.
+2. Using resource config files from kube-apiserver (A must if kubernetes is auto managed)
+  - `kubectl get all -all-namespace -o yaml > all-deploy-services-ex.yaml` OR by using tools to manage it
+3. Using ETCD server as it has already info about all object in cluster
+  - Backup data location are in `etcd.service` in `--data-dir` property
+  - `ETCDCTL_API=3 etcdctl snapshot save SNAPSHOT.db` 
+  - `ETCDCTL_API=3 etcdctl snapshot status SNAPSHOT.db` see backup status
+    - We can `export ETCDCTL_API=3` and use it directly as version 3
+    - With `etcdctl` commands specify `--endpoint, --cert, --cacerts, --key` to connect to ETCD server, ex:
+      - ```
+          --endpoints=https://127.0.0.1:2379 \
+          --cert=/etc/kubernetes/pki/etcd/server.crt \
+          --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+          --key=/etc/kubernetes/pki/etcd/server.key \
+        ```
+  - `service kube-apiserver stop`
+  - Update backup data directory in `etcd.service` in `--data-dir` property, by default is in `/etc/systemd/system/etcd.service` // `/var/lib/etcd`
+  - Restart controlplane components, and kubelet if needed `systemctl restart kubelet`
+    - `systemctl daemon-reload`
+    - `service etcd restart`
+  - `service kube-apiserver start`
+- `ETCDCTL_API=3 etcdctl --data-dir /DST-DIR snapshot restore SNAPSHOT.db` could specify target dir `--data-dir /DIR`
+
+- `kubectl config use-context CLUSTER` Change cluster context
+- `kubectl config view CLUSTER` Change cluster context
+
+## Security
+### Authentication Mechanisms
+### TLS
+- Certificates: Public Key(`*.crt` or `*.pem`)
+- Private Key: (`*.key` or `*-key.pem`)
+- We have many tools to manage certificates, we'll use `openssl` **kubadm manages this whole process**
+- `openssl genrsa -out FILE.key 2048` Generate key
+- `openssl req -new -key MY.key -subj "/CN=CERT-NAME" -out MY.csr` Certificate signing request
+  - `"/CN=ISSUED-TO/O=GROUP-DETAILS"` ex: system:masters for admin user privileges.
+  - Kubernetes controlplane components must be prefixed with `system` (kube-schedular, kube-controller-manager)
+- `openssl x509 -req -in MY.csr -CA CA.crt -CAkey CA.key -out MY.crt` Sign certificate with CA certificate and key
+  - `-config openssl.cnf` To add a config file
+  - `openssl x509 -req -in CA.csr -signkey CA.key -out CA.crt` Signing CA certificate 
+
+To Specify more alternative names: @`openssl.cnf`
+```
+[alt_names]
+DNS.1 = ...
+....
+IP.1 = ....
+....
+```
+Pass this config file as an option while creating the certificate file `-config openssl.cnf`
+
+- Inspect logs:
+  - kubeadm is used:
+    - `kubectl logs etcd-master`
+    - Certificates locations: `/etc/kubernetes/manifests/kube-apiserver.yaml`
+  - Configured from scratch, use service logs
+  - `journalctl -u etcd.service -l`
+    - Certificates locations: `/etc/systemd/system/kube-apiserver.service`
+  - `docker ps -a` + `docker logs ID` If a core component is down
