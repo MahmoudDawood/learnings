@@ -40,6 +40,18 @@
 
 - `etcdctl member list` to see all nodes that are a part of this ETCD server, *pass the flags to connect to the server whenever you use `etcdctl`*
 
+- `config view` to view currently running config file
+  - `--kubeconfig=CONFIG-FILE`
+- `config use-context CONTEXT` Change context
+- `proxy` launches a local HTTP proxy service on port 8001 to access kube-apiserver, uses credentials and certificates from kubeconfig to access cluster
+- `get roles` + all other operations
+- `get rolebindings` + all other operations
+- `auth can-i VERB RESOURCE` check current access
+- `--as ANOTHER-USER` Administrator makes action as a user
+- `api-resources` Get resources
+  - `--namespaced={true,false}` {namespaced, cluster scoped}
+- `get serviceaccount`
+
 ### Cluster Architecture
 - Master: Manage, plan, schedule, monitor Nodes
 - Worker Nodes: Hosts application as container
@@ -562,7 +574,7 @@ spec:
 
 ## Security
 ### Authentication Mechanisms
-### TLS
+#### TLS
 - Certificates: Public Key(`*.crt` or `*.pem`)
 - Private Key: (`*.key` or `*-key.pem`)
 - We have many tools to manage certificates, we'll use `openssl` **kubadm manages this whole process**
@@ -573,6 +585,7 @@ spec:
 - `openssl x509 -req -in MY.csr -CA CA.crt -CAkey CA.key -out MY.crt` Sign certificate with CA certificate and key
   - `-config openssl.cnf` To add a config file
   - `openssl x509 -req -in CA.csr -signkey CA.key -out CA.crt` Signing CA certificate 
+    - `openssl x509 -in CRT.crt -text -noout` Get info about certificate
 
 To Specify more alternative names: @`openssl.cnf`
 ```
@@ -591,4 +604,167 @@ Pass this config file as an option while creating the certificate file `-config 
   - Configured from scratch, use service logs
   - `journalctl -u etcd.service -l`
     - Certificates locations: `/etc/systemd/system/kube-apiserver.service`
-  - `docker ps -a` + `docker logs ID` If a core component is down
+  - If a core component is down
+    - `docker ps -a` + `docker logs ID` 
+
+#### Certificates api
+By Controller Manager >> CSR-ِAPPROVING & CSR-SIGNING controllers
+1. Create CertificateSigningRequest Object
+  - `openssl genrsa -out FILE.key 2048` Generate key 
+  - `openssl req -new -key MY.key -subj "/CN=CERT-NAME" -out MY.csr` Certificate signing request `*.csr`
+  - It's created using manifest file: 
+    ```
+    apiVersion: certificates.k8s.io/v1
+    kind: CertificateSigningRequest
+    metadata:
+    spec:
+      groups:
+        - system:authenticated (ex)
+      usages:
+        - client auth (ex)
+      request: 
+        {`cat CERT.csr | base64 -w 0` encoded certificate}
+    ```
+2. View signing requests
+  - `kubectl get csr`
+  - `kubectl certificate approve CERT-NAME`
+    - `kubectl certificate deny CERT-NAME`
+3. View certificate
+  - `kubectl get csr CERT-NAME -o yaml` base 64 encoded certificate, `echo CERT | base64 --decode` to decode it and share with end user
+
+#### KubeConfig
+`$HOME/.kube/config` default location where we define clusters, users, contexts
+```
+apiVersion: v1
+king: Config
+
+clusters
+- cluster:
+    certificate-authority: {cert location} OR certificate-authority-data: {encoded cert}
+    server:
+  name:
+
+current-context: DEFAULT-CONTEXT
+contexts:
+- context:
+    cluster: CLUSTER-NAME
+    user: USER-NAME
+    namespace: {optional}
+  name:
+
+users:
+- user:
+    client-certificate:
+    client-key:
+  name: USER-NAME
+```
+- If it's defined elsewhere, define it explicitly `kubectl get pods --kubeconfig CONFIG-FILE`
+- Don't create an object from this file, it's read by kubectl automatically
+- `kubectl config view` to view currently running config file
+  - `--kubeconfig=CONFIG-FILE`
+- `kubectl config use-context CONTEXT` Change context
+
+#### API Groups
+- Core group `api` contains all core components
+- Named group `apis` contains organized components (Groups > Resources > Verbs)
+- `kubectl proxy` launches a local HTTP proxy service on port 8001 to access kube-apiserver, uses credentials and certificates from kubeconfig to access cluster
+
+## Authorization
+- Modes
+  - Node Authorizer: Authorizes users ex: `system:node:*` & groups `SYSTEM:NODES` like kubelets (Access within cluster)
+  - ABAC (Attribute Based Access Control): Associate users or groups with set of permissions through policy files
+    - `{kind: "Policy", "spec": {"user": ..., "namespace": ...., "resource": ...., "apiGroup": ....}}`
+    - Must be edited manually then restart kube-apiserver
+  - RBAC (Role Based Access Control): Create a role with set of permissions, associate users to that role
+  - Webhook: Outsource auth process to an external service
+  - AlwaysAllow
+  - AlwaysDeny
+- Specified in the kub-apiserver `--authorization mode=Node,RBAC,...(ex)` default is `AlwaysAllow`
+
+#### RBAC
+```
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+rules:
+- apiGroups: [""] (Empty for core groups)
+  resources: ["pods"]
+  verbs: ["list", "get", "create", "delete", "watch"]
+  resourceNames: [] (Specific pod -resources- names)
+```
+Or using the imperative way `kubectl create role NAME --verb=...,....,... --resource=....`
+#### Role Binding
+Link user to role
+```
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+subjects: (user details)
+- kind:
+  name:
+  apiGroup: rbac.authorization.k8s.io/v1
+roleRef: (role details)
+  kind:
+  name:
+  apiGroup: rbac.authorization.k8s.io/v1
+```
+Or using the imperative way `kubectl create rolebinding NAME --role=... --user=....`
+- `kubectl get roles`
+- `kubectl get rolebindings`
+- `kubectl auth can-i VERB RESOURCE` check current access
+  - `--as ANOTHER-USER` check access for another user as an administrator
+
+#### Cluster roles
+- Namespaced
+  - pod, rs, roles, secrets
+- Cluster scoped resources
+  - nodes, clusterroles, namespaces
+- `kubectl api-resources` Get resources
+  - `--namespaced={true,false}` {namespaced, cluster scoped}
+- Authorize users in cluster scoped resources by
+  - `ClusterRole` (Same as `Role`)
+  - `ClusterRoleBinding` (Same as `RoleBinding`)
+
+### Service Accounts
+Account used by application to interact with cluster aka `sa`
+- `kubectl create serviceaccount NAME` creates service account
+- `kubectl create token SVC-ACC-NAME` generate a time bound token for the service account
+- `kubectl get serviceaccount`
+- Include it in the pod definition file
+```
+spec:
+  serviceAccountName: ....
+  automountServiceAccountToken: ... (default to true)
+```
+#### Image security
+registry/user-account/image-repository, registry default is `docker.io`, account default is `library`
+- Private repo
+  - `docker login NAME`
+  - `docker run PRIVATE-REG/.../...`
+  - Pass registry credentials to pods
+    ```
+    kubectl create secret docker-registry SECRET-CRED-NAME
+      --docker-server=
+      --docker-username=
+      --docker-password=
+      --docker-email=  
+    ```
+  - Use registry credentials in pod definition file
+    ```
+    spec:
+      imagePullSecrets:
+      - name: SECRET-CRED-NAME
+    ```
+#### Security Contexts
+Define pod or container security settings
+```
+spec:
+  securityContext: (Pod level)
+    runAsUser: USERID
+  containers:
+  - name: ....
+    securityContext: (Container level -overrides pod level-)
+      runAsUser: USERID
+      capabilities: (Only supported at container level)
+        add: ["MAC_ADMIN"]
+```

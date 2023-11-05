@@ -45,7 +45,7 @@ Open-source container orchestration system for automating software deployment, s
 - Kubernetes:
   - CRI: Container Runtime Interface for any container runtime
   - OCI: Open Container Initiative ior unified images (imagespec) and container runtime (runtimespec)
-- ubernetes ues:
+- kubernetes ues:
   - `crictl`: a separate cli to inspect and debug CRI compatible runtime
 
 ## YAML in Kubernetes
