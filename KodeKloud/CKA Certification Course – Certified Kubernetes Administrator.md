@@ -50,7 +50,11 @@
 - `--as ANOTHER-USER` Administrator makes action as a user
 - `api-resources` Get resources
   - `--namespaced={true,false}` {namespaced, cluster scoped}
-- `get serviceaccount`
+- `get serviceaccount` or `sa`
+- `get networkpolicy` or `netpol`
+- `get persistentvolume` or `pv`
+- `get persistentvolumeclaim` or `pvc`
+- `get storageclass` or `sc`
 
 ### Cluster Architecture
 - Master: Manage, plan, schedule, monitor Nodes
@@ -760,7 +764,7 @@ Define pod or container security settings
 ```
 spec:
   securityContext: (Pod level)
-    runAsUser: USERID
+    runAsUser: USERID (Default is root)
   containers:
   - name: ....
     securityContext: (Container level -overrides pod level-)
@@ -768,3 +772,159 @@ spec:
       capabilities: (Only supported at container level)
         add: ["MAC_ADMIN"]
 ```
+
+### Network Policies
+Kubernetes object that limits networking on a pod with source, connection type, port. Supported by **some** kubernetes network solutions.
+- `kubectl get networkpolicy` aka `netpol`
+```
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+spec:
+  podSelector: (Where the policy applies)
+    matchLabels:
+      key: value
+  policyTypes: (Only specified types are applied, else it's all enabled by default)
+  - Ingress {Ingress: allows receiving requests and sending back it's response}
+  - Egress
+  ingress:
+    - from:
+        - podSelector: 
+            matchLabels:
+              name:
+          namespaceSelector: (As it's not a separate rule defined by '-', it applies as AND to the previous rule)
+            matchLabels: 
+              name:
+      ports:
+        - protocol: TCP
+          port:
+
+    - from
+        - ipBlock: (allow external IP to policy)
+            cidr: EXTERNAL-IP
+      ports:
+        - protocol: TCP
+          port:
+
+  egress:
+    ....
+```
+
+## Storage
+- Declare storage in the pod definition file:
+```
+spec:
+  volumes:
+    - name: NAME
+      hostPath:
+        path: /HOST-PATH
+  containers:
+    - image:
+      volumeMounts:
+        - mountPath: /CONT-PATH
+          name: VOLUME-NAME
+```
+
+### Persistent volumes (PV)
+A cluster wide pool of storage volumes to be used by users deploying apps to cluster, to manage storage centrally. aka `pv`
+- Created by Administrators
+```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+spec:
+  persistentVolumeReclaimPolicy: {Retain: keep pv but not available, Delete: deletes pv, Recycle: Scrub, keep pv}(After PVC deletion)
+  accessModes:
+    - {ReadOnlyMany, ReadWriteOnce, ReadWriteMany}
+  capacity:
+    storage: 1Gi
+  hostPath: (Replaced by any storage solution)
+    path: /...
+```
+### Persistent Volume Claim (PVC)
+To make storage available to a node. Maps to only a single persistent volume **1PVC: 1PV** aka `pvc`
+- Created by Users
+- `kubectl get persistentvolumeclaim`
+```
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+spec:
+  accessModes:
+    - {ReadOnlyMany, ReadWriteOnce, ReadWriteMany}
+  resources:
+    requests:
+      storage: 500Mi
+  volumeMode: MODE
+  storageClassName: SC-NAME
+```
+- Use the created PVC in the *pod* definition file under the volumes section:
+```
+spec:
+  volumes:
+    - name: NAME (To be used in volumeMounts name)
+      persistentVolumeClaim:
+        claimName: CLAIM-NAME
+```
+WHAT'S THE USE OF FIRST TYPE STORAGE
+### Storage Class
+Defines provisioner which automatically creates PV, attaches it to pods -**Dynamic Provisioning**- aka `sc`
+```
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: CLASS-NAME
+provisioner: kubernetes.io/gce-pd (ex)
+parameters:
+  type: {pd-standard, pd-ssd}
+  replication-type: {none, regional-pd}
+```
+- Use it in PVC
+```
+spec:
+  storageClassName: CLASS-NAME
+```
+
+## Networking
+- `ip link` list, modify interfaces on a host
+- `ip addr` see IP addresses assigned to these interfaces
+- `ip addr add ADDRESS-IN-NETWORK dev INTERFACE` assign IP-addresses to interfaces
+
+- `route` show current routing configuration -routing table-
+- `ip route add TRGT-ADDR via GATEWAY-ADDR` add entry to routing table
+  - `route` to check routing tables
+  - `ip route add default via GATEWAY-ADDR` Specify default gateway, default is 0.0.0.0
+- `/proc/sys/net/ipv4/ip_forward` write `1` to enable forwarding packets between private and public interfaces, `0` to deny (default)
+- `iptables -t nat -A PREROUTING --dport PORT --to-destination DST-IP -j DNAT` create an IP forwarding rule for incoming request on that port
+- `/etc/sysctl.conf` Persist any change  
+  - `net.ipv4.ip_forward = 1` to persist IP forwarding
+- Name resolution
+- `/etc/hosts` Modify Name Resolution: `192.168.1.1    host1`
+- `/etc/resolv.conf` Configure hosts to point to DNS>> `nameserver IP`
+- `/etc/nsswitch.conf` To prioritize hosts file or dns in case of common addresses, order them.
+- `nslookup HOST-NAME` query a hostname from DNS only
+- `dig HOST-NAME` test DNS resolution with more details
+- Namespace
+- `ip netns` list network namespaces
+  - `add NAME-SPACE`
+  - `exec NAME-SPACE CMD` execute command within a namespace or `ip -n NS CMD`
+- Allow internal namespaces communication (Handled by )
+  1. We could imitate a cable and connection -pipe- at both namespaces with `veth`
+  2. Create an private network using virtual switch (Bridge interface), connect namespaces & wires to it (Interface for hosts, switch for namespaces)
+- Docker
+  - `docker run --network`
+    - `none` container is isolated from any connection
+    - `host` container uses same network as host, no isolation(container port is mapped to host port)
+    - `bridge` (Default) Usually @172.17.0.1
+      - as if it ran `ip link add docker0 type bridge` where docker0 is the real name it uses on host, test by `ip link`
+  - `docker network ls`
+  - Docker creates a container > creates a namespace > pair of interfaces > Attaches one end to container, the other to the bridge network
+
+#### Container Networking Interface (CNI)
+Unified set of responsibilities for container runtime and plugins to dynamically configure network resources.
+
+- `ip a | grep NODE-IP` to view a node interface
+- `ip address show type bridge` view specific network type
+- `ip link show INTERFACE` to show the MAC address
+- `netstat -nplt` show active network connections ????
+- `netstat -anp` ????/?
