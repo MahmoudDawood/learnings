@@ -22,7 +22,7 @@
   - `minikube addons enable metrics-server` if using minikube OR Download from [GitHub](https://github.com/kodekloudhub/kubernetes-metrics-server) and create it's components
   - `kubectl top` to get CPU & memory usage
     - `pod` or `node`
-- `kubectl get configmaps`
+- `kubectl get configmaps` or `cm`
 - `kubectl create configmap NAME` Imperative approach, same for `secret`
   - `--from-literal=KEY=VALUE` OR `--from-file=FILE`
 - `kubectl create -f CONFIG-FILE` Declarative approach
@@ -45,7 +45,7 @@
 - `config use-context CONTEXT` Change context
 - `proxy` launches a local HTTP proxy service on port 8001 to access kube-apiserver, uses credentials and certificates from kubeconfig to access cluster
 - `get roles` + all other operations
-- `get rolebindings` + all other operations
+- `get rolebindings` + all other operations + CLUSTER OBJ
 - `auth can-i VERB RESOURCE` check current access
 - `--as ANOTHER-USER` Administrator makes action as a user
 - `api-resources` Get resources
@@ -55,6 +55,7 @@
 - `get persistentvolume` or `pv`
 - `get persistentvolumeclaim` or `pvc`
 - `get storageclass` or `sc`
+- `get ingress`
 
 ### Cluster Architecture
 - Master: Manage, plan, schedule, monitor Nodes
@@ -416,7 +417,7 @@ spec:
                       key: KEY
 ```
 #### ConfigMaps
-Manage configuration data centrally.
+Manage non-confidential configuration data as a key-value pairs centrally. aka `cm`
 1. Create ConfigMap
 2. Use it in pods
 - `kubectl get configmaps`
@@ -886,21 +887,23 @@ spec:
 ```
 
 ## Networking
-- `ip link` list, modify interfaces on a host
+- `ip link` list, modify *interfaces* on a host
+  - `show INTERFACE` show addresses of interface
 - `ip addr` see IP addresses assigned to these interfaces
+  - `show INTERFACE` show addresses of interface
 - `ip addr add ADDRESS-IN-NETWORK dev INTERFACE` assign IP-addresses to interfaces
+- `ip address show type bridge` view specific network type
+- `netstat` displays all network connections (use set of desired options)
 
-- `route` show current routing configuration -routing table-
-- `ip route add TRGT-ADDR via GATEWAY-ADDR` add entry to routing table
-  - `route` to check routing tables
-  - `ip route add default via GATEWAY-ADDR` Specify default gateway, default is 0.0.0.0
+- `ip route` manage current routing configuration -routing table-
+- `ip route add TRGT-ADDR via GATEWAY-ADDR` add entry to routing table, for default route, set TRGT to `default`
 - `/proc/sys/net/ipv4/ip_forward` write `1` to enable forwarding packets between private and public interfaces, `0` to deny (default)
 - `iptables -t nat -A PREROUTING --dport PORT --to-destination DST-IP -j DNAT` create an IP forwarding rule for incoming request on that port
 - `/etc/sysctl.conf` Persist any change  
   - `net.ipv4.ip_forward = 1` to persist IP forwarding
 - Name resolution
 - `/etc/hosts` Modify Name Resolution: `192.168.1.1    host1`
-- `/etc/resolv.conf` Configure hosts to point to DNS>> `nameserver IP`
+- `/etc/resolv.conf` Configure hosts to point to DNS >> `nameserver IP`
 - `/etc/nsswitch.conf` To prioritize hosts file or dns in case of common addresses, order them.
 - `nslookup HOST-NAME` query a hostname from DNS only
 - `dig HOST-NAME` test DNS resolution with more details
@@ -922,9 +925,65 @@ spec:
 
 #### Container Networking Interface (CNI)
 Unified set of responsibilities for container runtime and plugins to dynamically configure network resources.
+- Networking solutions handles pods networking problems
+- `/opt/cni/bin` all supported Network *plugins*
+- `/etc/cni/net.d` has the *configuration* file to be used by kubelet.
+- `kubelet.service` >> `--network-plugin=cni` to specify Network plugin, view it by `ps -aux | grep kubelet`
 
-- `ip a | grep NODE-IP` to view a node interface
-- `ip address show type bridge` view specific network type
-- `ip link show INTERFACE` to show the MAC address
-- `netstat -nplt` show active network connections ????
-- `netstat -anp` ????/?
+- weaveworks (Networking solution)
+  - `kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml` install weave
+  - Installs it's agents on each node as a service which stores a topology of the entire cluster setup.
+  - Creates it's own bridge on nodes named `WEAVE`
+  - Weave agent intercepts sent packets to pods on another nodes, encapsulates it with new src & dst, the other agent retrieves it, decapsulate it, routes it to the right pod
+- IP Address Management (IPAM)
+  - Weave assigns IPs within range of 10.32.0.0/12 ~ 1M Addresses
+  - To get PODS IP addresses range: See **weave pod logs** `ipalloc-range:`
+  - To get Services IP addresses range: See **kube-apiserver** creation file
+
+### Service Networking
+Services cluster wide -accessible anywhere from the cluster- managed by `kube-proxy` as a *DaemonSet* to be deployed on each node in the cluster.
+- `kube-proxy --proxy-mode {userspace, iptables, ipvs}` select mode to manage rules (Default is `iptables`)
+- `iptables -L -t nat | grep SVC` see rules created by kube-proxy for each service OR `/var/log/kube-proxy.log` kube-proxy logs.
+
+### DNS in Kubernetes
+Fully Qualified Domain Name (FQDN) `hostname.namespace.type.root` Default root domain: cluster.local
+- Kubernetes now uses CoreDNS
+  - Is deployed by a Deploymnet with 2 instances for replication. 
+  - runs `./Coredns` executable 
+  - `/etc/coredns/Corefile` configuration file, deployed as a ConfigMap object, we can edit it directly from there.
+  - `kubelet` manages setting the pods dns nameserver to the dns service
+  - We have to explicitly tell it to use PODS records in the ConfigMap
+  - `nslookup SVC` or `host SVC` to manually lookup DNS, returns FDQN
+  - When specifying PODS use the FQDN
+### Ingress
+Helps users access application using a signle accessible URL configured to route traffic to services within cluster based on the URL path & at the same time implement SSL security
+#### 1. Ingress Controller
+**Doesn't come with kuberentes by default** we have to deploy one ex: GCE, nginx
+- Deployment: Of Ingress image (nginx)
+- Service: To expose it
+- ConfigMap: Feed configuration data to Service
+- ServiceAccount: To access all of these objects with the right permissions (Auth)
+#### 2. Ingress Resources
+Configurations applied on the ingress controller
+- *Rules* for host & domain name. *Paths* within rules to route traffic based on URL.
+- `kubectl get ingress`
+- `kubectl create ingress NAME --rule="DOMAIN.com/PATH*=SERVICE:PORT"` create imperatively
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.rngress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - host: HOST-NAME-OR-DOMAIN (Only in case of many Domain names)
+    http:
+      paths:
+      - path: /PATH
+        backend:
+          service:
+            name: NAME
+            port:
+              number: 
+```
