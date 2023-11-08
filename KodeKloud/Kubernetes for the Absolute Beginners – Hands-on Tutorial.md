@@ -165,7 +165,7 @@ spec:
   type: LoadBalancer
 ```
 
-## ubeadm
+## kubeadm
 Helps setup a multi node cluster networking & security + **Vagrant** to build and maintain VMs
 - `kubeadm` bootstrap the cluster
 - `kubelet` component that runs all machines on cluster, start pods and containers

@@ -987,3 +987,52 @@ spec:
             port:
               number: 
 ```
+
+## Design and Install Kubernetes
+- Minikube: Provisions a VM for a single node cluster
+- kubeadm: Requires VMs to be ready, allows multi-node cluster
+#### Infrastructure
+- Turnkey solutions: You manage everything privately on premises, ex: KOPS on AWS & OpenShift
+- Hosted solutions: Provider manages everything, ex: Google Container Engine (GKE) & AWS EKS & OpenShift online.
+### Hight Availability
+- API Server:
+  - Works in Acitve-Active mode in case of many masters
+  - Needs a load balancer on top of them
+- Controller Manager, Scheduler
+  - Works in Acitve-StandBy mode 
+  - `kube-controller-manager --leader-elect BOOL [opts]` By default, it tries to gain lock on kube-controller-manager Endpoint
+- ETCD
+  - Stacked topology: Runs on master nodes, easier setup, manage, fewer servers, risk of failures
+  - External topology: Runs on separate node, less risky, harder to setup, more servers
+    - ETCD is distributed: call any server of them directly
+  - Leader Selection: RAFT protocol
+    - Write opereation is done via the leader only and forwarded to him
+    - Cluster is up if at least a Qourum number of servers is up **floor(N/2 + 1)**. Odd number of node >= 3 is more efficient for fault tolerance.
+
+## Install kubernetes using kubeadm
+1. Provision nodes
+2. Install containerd CR
+3. [Install kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+  - ex:
+    ```
+    sudo apt-get update
+    sudo apt-get install -y apt-transport-https ca-certificates curl
+
+    mkdir -p /etc/apt/keyrings
+
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+
+    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+    sudo apt-get update
+    sudo apt-get install -y kubelet=1.27.0-00 kubeadm=1.27.0-00 kubectl=1.27.0-00
+    sudo apt-mark hold kubelet kubeadm kubectl
+    ```
+    Run output given commands to create kubeconfig file
+4. [Initialize the master server](https://v1-27.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
+  `kubeadm init [args]`
+5. Setup POD network
+6. Woker nodes join master node
+  - With the provided output of `kubeadm init`
+  - ex:
+    `kubeadm join 192.25.74.3:6443 --token dho3dd.3sxa2q71zjupudmw --discovery-token-ca-cert-hash sha256:af68f6a7e3cc75aeebb33aa3f24c835b251384ad4116b027c4629fd932ade222`
