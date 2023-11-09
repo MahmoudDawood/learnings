@@ -1036,3 +1036,40 @@ spec:
   - With the provided output of `kubeadm init`
   - ex:
     `kubeadm join 192.25.74.3:6443 --token dho3dd.3sxa2q71zjupudmw --discovery-token-ca-cert-hash sha256:af68f6a7e3cc75aeebb33aa3f24c835b251384ad4116b027c4629fd932ade222`
+
+## Troubleshooting
+### Appliation Failure
+  - Check Accessibility
+    - Start from either ends depending on failure.
+  - Check if ip is accessible using `curl`
+  - Check service if it's discovered the endpoints based on selectors if they match
+  - Check pod state, restarts, events, logs `-f` watch in real time OR `--previous` for previous pod logs.
+### Control Plane Failure
+  - Check nodes status
+  - Check pods status
+  - Check controlplane pods & services
+  - Check controlplane components logs
+    - `sudo journalctl -u kube-apiserver` If services are configured natively on master node
+### Worker Node Failure
+  - Check Node status
+    - Check memory and disk space on the nodes `top` & `df -h`
+  - Check Kubelet status
+    - Check kubelet service `/var/lib/kubelet/CONFIG-FILE` OR kubelet configuration file or `/etc/kubernetes/kubelet.conf`
+    - Check status `service kubelet status`, if it's inactive `service kubelet start`
+    - Check logs `sudo journalctl -u kubelet` 
+  - Check certificates `openssl x509 -in /var/lib/kubelet/WORKER-NODE -text`
+    - Ensure it's not expired, right group, Issed by right CA.
+
+## JSON Path
+kube-apiserver return full info in json format
+### JSON PATH in kubectl
+1. Identify the kubectl command
+2. Familiarize with JSON output `-o json`
+3. From the JSON PATH query
+4. Use the JSON PATH query with the kubectl command
+  - `-o=jsonpath='{ json } {"\n"} {"\t"} ...'`
+### Loops
+- `'{.PROP[*].PROP.PROP}{"\n"}{SECOND COLUMN}'`
+### Custom columns
+- `-o=custom-columns=CUSTOM-NAME:FIELD, .....`
+- `--sort-by=FIELD`
