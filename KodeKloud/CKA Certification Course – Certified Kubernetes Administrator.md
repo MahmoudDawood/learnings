@@ -99,7 +99,7 @@ Schedules the right node to place a container on by Kubelet. (Crane)
 2. Ranks nodes
 ### Kubelet
 Agent runs on each node, listens to instructions from kube-apiserver, sends reports to it (Captain)
-- Is not automatically, deployed by kubeadm, **must by installed manually**
+- Is not automatically deployed by kubeadm, **must by installed manually**
 #### Kube-proxy
 Process runs on each node, creates rules in tables for newly created service
 

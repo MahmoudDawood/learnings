@@ -93,7 +93,7 @@ SAME AS REPLICACONTROLLER
 spec:
   template: POD-TEMP (metadata + spec)
   replicas: 
-  selector: (Mandatory)
+  selector: (Mandatory here)
     matchLabels:
       key: value 
 ```
