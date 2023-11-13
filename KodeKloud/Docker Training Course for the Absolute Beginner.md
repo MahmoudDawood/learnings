@@ -43,7 +43,7 @@ EXPOSE port
 ENTRYPOINT command-to-run-app (gets appended to the end of command vs CMD runs after the command is finished)
 ```
 ENTRYPOINT and CMD can be combined together to use default values, but a json array format must be used.
-- `docker build SRC -t ACCOUNT/IMAGE-NAME` Create the image **Must be logged in first `docker login`**
+- `docker build IMG-NAME -t ACCOUNT/TAG-NAME` Create the image **Must be logged in first `docker login`**
 - `docker push ACCOUNT/IMAGE-NAME` Push image to docker hub **Must have a tag name**
 
 ## Docker Compose
