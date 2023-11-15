@@ -143,6 +143,8 @@ metadata:
       limits.cpu:
       limits.memory:
   ```
+- Requests: Initial minimum located resource to service (Recommended to be set)
+- Limits: Maximum allowed resources limits to be located
 
 ### Imperative vs Declarative approach
 - Imperative: Running the step by step of creation or update commands like `edit`, `scale` directly, or using object files with `create` or `update` commands
@@ -184,10 +186,10 @@ Tells node to accept pods with certain toleration.
 ```
 spec
   tolerations:
-  - key: ""
+  - key: "" (Double quotes are essential in all fields)
     operator: ""
     value: ""
-    effect: ""
+    effect: "" 
 ```
 
 #### Node Selectors
@@ -201,7 +203,7 @@ spec:
 - Limitations: Cannot use OR or NOT
 
 #### Node Affinity
-Prevent pods to be placed on random nodes
+Prevent pods to be placed on random nodes *allowing operators on node selectors*
 - Types
   - Available
     -  requiredDuringSchedulingIgnoredDuringExecution 
@@ -212,7 +214,7 @@ Prevent pods to be placed on random nodes
 ```
 spec:
   affinity:
-    nodeAffininty:
+    nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution: (ex)
         nodeSelectorTerms:
         - matchExpressions:
@@ -226,6 +228,7 @@ spec:
 ```
 
 #### Resource Limits
+Located to pods
 ```
 spec:
   containers:
@@ -237,12 +240,12 @@ spec:
         memory:
         cpu:
 ```
-- If no requests is set, it's set to the limit
+- **If no requests is set, it's set to the limit**
 - If cpu usage exceeds limits, cpu throttles
 - If memory usage exceeds limits, it stops pod with OOM (Out Of Memory)
 
 - **Limit Range**
-Sets default values for containers inside pods
+Sets default predefined values for containers inside pods
 ```
 apiVersion: v1
 kind: LimitRange
@@ -251,9 +254,9 @@ spec:
   limits:
   - default: (limit)
       cpu: 500m
-    defaultRequest:(request)
+    defaultRequest: (request)
       cpu: 
-    max:(limit)
+    max: (limit)
       cpu:
     min: (request)
       cpu:
@@ -413,7 +416,7 @@ spec:
     - name:
       value: (OR) valueFrom:
                     configMapKeyRef: (OR) secretKeyRef: 
-                      name: CONFIG-NAME
+                      name: CONFIG-FILE-NAME
                       key: KEY
 ```
 #### ConfigMaps
@@ -432,7 +435,7 @@ Manage non-confidential configuration data as a key-value pairs centrally. aka `
       key:value
   
 #### Secrets
-Store sensitive information in an *encoded* format, (Same as ConfigMap)
+Store sensitive information in an *encoded* format (Same as ConfigMap)
 1. Create the secret
   - `kubectl create secret generic NAME` Imperative approach, generic is the default secret type
     - `--from-literal=KEY=VALUE` OR `--from-file=FILE`
@@ -448,20 +451,20 @@ Store sensitive information in an *encoded* format, (Same as ConfigMap)
     spec:
       - .....
         envFrom: (List of configuration maps)
-          secretKeyRef: 
-            name: SECRET-NAME
+          - secretKeyRef: or (secretRef) for selecting secret file directly 
+              name: SECRET-NAME
 - `echo -n 'secret' | base64` to encode secret before storing it in file
 - `kubectl get secret NAME -o yaml` to view the secret values
 - `echo -n 'secret' | base64 --decode` to decode a secret 
 - Notes
   - Secrets are encoded NOT encrypted
-  - Secrets are not encrypted in ETCD, we have to enable encryption at rest
+  - Secrets are not encrypted in ETCD, we have to enable [encryption at rest](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
   - Secrets are available to anyone who can create pods/deployments in namespace
     - Consider Role Based Access Control (RBAC)
   - Consider 3rd party secret providers 
 
 ### Enable Encryption at rest
-#### View secrets from etcd
+#### View secrets from etcd with hexdump
 ```
 ETCDCTL_API=3 etcdctl \
    --cacert=/etc/kubernetes/pki/etcd/ca.crt   \
@@ -469,6 +472,7 @@ ETCDCTL_API=3 etcdctl \
    --key=/etc/kubernetes/pki/etcd/server.key  \
    get /registry/secrets/default/SECRET-TO-SEE | hexdump -C
 ```
+### EncryptionConfiguration
 - Create `EncryptionConfiguration` object file, pass it as an option
 ```
 apiVersion: apiserver.config.k8s.io/v1
@@ -478,9 +482,10 @@ resources:
       - secrets
       - configmaps
     providers:
+      - identity: {} (What's being used for encryption)
       - aescbc:
           keys:
-            - name: key1
+            - name: KEY1
               secret: <BASE 64 ENCODED SECRET>
 ```
 - `head -c 32 /dev/urandom | base64` generate a random key
@@ -498,7 +503,7 @@ resources:
       hostPath:                             # add this line
         path: /etc/kubernetes/enc           # add this line
         type: DirectoryOrCreate 
-- `kubectl get secrets --all-namespaces -o json | kubectl replace -f -` Ensure all old data are encrypted
+- `kubectl get secrets --all-namespaces -o json | kubectl replace -f -` Ensure all old secrets are encrypted
 
 #### Multi Container Pod
 In microservice, we may want services functionality to work together, but developed and deployed separately.
@@ -641,7 +646,7 @@ By Controller Manager >> CSR-ِAPPROVING & CSR-SIGNING controllers
 `$HOME/.kube/config` default location where we define clusters, users, contexts
 ```
 apiVersion: v1
-king: Config
+kind: Config
 
 clusters
 - cluster:
@@ -732,6 +737,12 @@ Or using the imperative way `kubectl create rolebinding NAME --role=... --user=.
 
 ### Service Accounts
 Account used by application to interact with cluster aka `sa`
+- In the past serviceAccount is automatically created for each namespace with no expiry date & mounted to it's pods in `/var/run/secrets/kubernetes.io/`
+- Since `v1.22` TokenRequestsAPI generates token and and locates it to pods.
+- Since `v1.24` we have to create our own Token manually `kubectl create token SA`
+- To create a SA with no expiry date, create it and located a special secret to it (see docs -not recommended-)
+- Creates a token, stores it in a secret ready to be used or exported to service.
+- Locate SA to a specific POD def file under spec: `serviceAccountName: ...`
 - `kubectl create serviceaccount NAME` creates service account
 - `kubectl create token SVC-ACC-NAME` generate a time bound token for the service account
 - `kubectl get serviceaccount`
@@ -765,7 +776,7 @@ Define pod or container security settings
 ```
 spec:
   securityContext: (Pod level)
-    runAsUser: USERID (Default is root)
+    runAsUser: USERID (Default is root -must be a number-)
   containers:
   - name: ....
     securityContext: (Container level -overrides pod level-)

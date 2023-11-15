@@ -10,6 +10,7 @@
 - `docker build -t IMG-NAME FILE` Create the image **Must be logged in first `docker login`**
 - `docker push ACCOUNT/IMAGE-NAME` Push image to docker hub **Must have a tag name**
 - `kubectl ......... -- ARGS` For in-container arguments
+- `kubectl taint nodes NODE-NAME KEY=VALUE:TAINT-EFFECT` effect: NoSchedule | PreferNoSchedule | NoExecute (Refer to CKA)
 
 
 ### Namespaces
@@ -23,5 +24,5 @@ metadata:
 spec:
   hard:
     ....
-```
-## Configuration
+ ##
+Configuration
