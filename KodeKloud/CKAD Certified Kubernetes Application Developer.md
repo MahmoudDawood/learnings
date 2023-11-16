@@ -11,7 +11,9 @@
 - `docker push ACCOUNT/IMAGE-NAME` Push image to docker hub **Must have a tag name**
 - `kubectl ......... -- ARGS` For in-container arguments
 - `kubectl taint nodes NODE-NAME KEY=VALUE:TAINT-EFFECT` effect: NoSchedule | PreferNoSchedule | NoExecute (Refer to CKA)
-
+- `kubectl logs -f MULTI-CONTAINER-POD -c CONTAINER` stream live logs **Must specify container in case of a multi-container pod**
+- `kubectl get pods --selector KEY=VALUE` Filter objects by labels
+  - `KEY=VALUE,KEY=VALUE` combine selectors
 
 ### Namespaces
 #### ResourceQuota
@@ -24,5 +26,82 @@ metadata:
 spec:
   hard:
     ....
- ##
-Configuration
+```
+## Multi-Container Pods
+In microservice architecture, we may want two pods to be developed and deployed separately, but work together, sharing same life cycle, network, storage
+### Design Patterns
+All pattern are implemented the same as as array of containers in the pod definition file.
+1. Sidecar: ex Logging agent working with a server
+2. Adapter: ex Processing the logs before sending them to the central server
+3. Ambassador: ex Modify connectivity in application code depending on the environment
+
+#### Init Containers
+Containers in pod which *must run to completion sequentially* before the real containers starts.
+```
+spec:
+  containers: ....
+  initContainers: ...
+```
+
+## Observability
+### Probes
+#### Readiness Probes
+Define what it means for an application inside that a container to be ready before it's being used (Depending on app).
+```
+spec: (In Pod definition file)
+  containers:
+    readinessProbe: (One of the following)
+      httpGet:
+        path:
+        port: (OR)
+      tcpSocket: 
+        port: (OR)
+      exec: 
+        command:
+          - 
+  
+  initialDelaySeconds: (Fixed delay to warmup)
+  periodSeconds: (How often to probe)
+  failureThreshold: (Default for probing is 3 attempts)
+```
+#### Liveness Probes
+Periodically test whether the application inside the container is actually healthy.
+```
+spec.containers.livenessProbes: (Same properties as Readiness Probes)
+```
+### Logging
+In case of a multi-container pod, we must specify the container in pod to view it's logs
+- `kubectl logs -f MULTI-CONTAINER-POD -c CONTAINER` stream live logs **Must specify container in case of a multi-container pod**
+### Monitoring
+Kubernetes doesn't come with a monitoring solution
+- Open source solutions: METRICS SERVER, DATADOG .....
+- METRICS SERVER:
+  - Open source In-memory storage solution, no historical data stored on disk
+  - `kubelet` uses `cAdvisor` to send performance metrics through kubelet api to METRICS SERVER
+  - `minikube addons enable metrics-server` if using minikube OR Download from [GitHub](https://github.com/kodekloudhub/kubernetes-metrics-server) and create it's components via `kubectl -f .` in the downloaded repo.
+  - `kubectl top` to get CPU & memory usage
+    - `pod` or `node`
+
+## POD Design
+### Labels, Selectors and Annotations
+Labels for grouping, Selectors for filtering
+- `kubectl get pods --selector KEY=VALUE` Filter objects by labels
+  - `KEY=VALUE,KEY=VALUE` combine selectors
+#### Annotation
+Records other details for informatory purposes, ex: version, contact info or integration purposes.
+```
+metadata:
+  annotations:
+    KEY: VALUE
+```
+#### Rolling updates and Rollbacks
+Deployment >> Rollout >> Revision
+1. Recreate: Destroy all of instances and redeploy them
+2. Rolling Update: (Default) take down and recreate instances one by one
+- `kubectl rollout status DEPLOY`
+- `kubectl rollout history DEPLOY`
+- `kubectl rollout undo DEPLOY`
+  - `--revision=N` to specify revision number, -1 is the first default on spawn-
+
+- `kubectl apply -f FILE` to updated deployment 
+  - `set image DEPLOY CONTAINER-NAME=NEW-IMAGE` to update deployment image **It results in deployment definition file having a different configuration**

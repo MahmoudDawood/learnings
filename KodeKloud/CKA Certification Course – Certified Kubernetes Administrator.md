@@ -379,7 +379,7 @@ profiles:
 Many additional tools help monitor kubernetes cluster components
 - METRICS SERVER:
   - In-memory storage, no historical data stored on disk
-  - `kubelet` uses `cAdvisor` to send performance metrics through kubelet apit to METRICS SERVER
+  - `kubelet` uses `cAdvisor` to send performance metrics through kubelet api to METRICS SERVER
   - `minikube addons enable metrics-server` if using minikube OR Download from [GitHub](https://github.com/kodekloudhub/kubernetes-metrics-server) and create it's components
   - `kubectl top` to get CPU & memory usage
     - `pod` or `node`
