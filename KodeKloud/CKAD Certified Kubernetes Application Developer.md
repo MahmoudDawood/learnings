@@ -14,6 +14,8 @@
 - `kubectl logs -f MULTI-CONTAINER-POD -c CONTAINER` stream live logs **Must specify container in case of a multi-container pod**
 - `kubectl get pods --selector KEY=VALUE` Filter objects by labels
   - `KEY=VALUE,KEY=VALUE` combine selectors
+- `kubectl get job`
+- `kubectl get cronjob`
 
 ### Namespaces
 #### ResourceQuota
@@ -101,7 +103,61 @@ Deployment >> Rollout >> Revision
 - `kubectl rollout status DEPLOY`
 - `kubectl rollout history DEPLOY`
 - `kubectl rollout undo DEPLOY`
+  - `--to-revision=e` rollback to a specific version
   - `--revision=N` to specify revision number, -1 is the first default on spawn-
+  - `--record` save command used to create/update deployment
 
 - `kubectl apply -f FILE` to updated deployment 
   - `set image DEPLOY CONTAINER-NAME=NEW-IMAGE` to update deployment image **It results in deployment definition file having a different configuration**
+
+#### Deployment Strategy
+- Recreate
+- RollingUpdate -Default-
+- Blue/Green: v2 is deployed alongside v1, after all tests pass, route the traffic there.
+- Canary: Route small amount of traffic to the v2 -using relatively smaller number of pods, or service manager like `Istio`-, if everything looks good upgrade original deployment with v2
+
+#### Jobs
+Run a set of pods to perform a given task to completion.
+```
+apiVersion: batch/v1
+kind: Job
+metadata:
+spec:
+  completions: N -Like replicas is rs-
+  parallelism: N -Default is sequential execution-
+  template:
+    spec:
+      containers:
+      - .....
+      restartPolicy: 
+```
+- In POD def file
+  - `resartPolicy: {Always -default-, Never, Onfailue}` Defines what happens when a container exits
+  - `backoffLimit: N` specify the number of retries before considering a Job as failed.
+#### CronJobs
+A job the can be scheduled
+```
+apiVersion: batch/v1beta
+kind: CronJob
+metadata:
+spec:
+  schedule: "* * * * *" -Cron format string-
+  jobTemplate:
+    -JOB-
+```
+```
+# ┌───────────── minute (0 - 59)
+# │ ┌───────────── hour (0 - 23)
+# │ │ ┌───────────── day of the month (1 - 31)
+# │ │ │ ┌───────────── month (1 - 12)
+# │ │ │ │ ┌───────────── day of the week (0 - 6) (Sunday to Saturday;
+# │ │ │ │ │                                   7 is also Sunday on some systems)
+# │ │ │ │ │                                   OR sun, mon, tue, wed, thu, fri, sat
+# │ │ │ │ │
+# * * * * *
+```
+
+
+
+1234567890
+%^_+@$
