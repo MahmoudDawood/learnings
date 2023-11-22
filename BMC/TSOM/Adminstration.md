@@ -36,10 +36,31 @@ Restrict access to data and operations
 - BMC PATROL Knowledge Modules (KMs): Instructions to PATROL Agent.
 
 #### Repository 
-Includes current version of PATROL
+Includes current versions of PATROL
 - Must download or copy repo files to TS Presentaion Server locally.
+- Consists of base & extended files.
 
 #### Creating a monitoring solution
 Select component to include in deployable package
+    - To be used by agent (needs an already created agent account) on the host.
 - Managed by TS console -previously was PATROL console for local agents & PCM (Patrol Configuration Manager), but not the best for enterprise level-
-- `/AgentSetup/textParameterLength` limit the length of data sent by the PATROL Agent.
+- No. of total installed components = 84
+- IntegraionService variable: PROTOCOL:TRGT-NAME-OR-IP:PORT
+- Check everything was setup right in the last creation step.
+- Deployed packages are stored in TS DB, accessed and downloaded, unzipped, installed from anywhere.
+- Check installed packages from services window -restart it- 
+    - `/AgentSetup/textParameterLength` limit the length of data sent by the PATROL Agent.
+- Versions prerequists:
+    - PATROL Agent >= 10.0
+    - Integration service >= 10.5
+- Deploy package to agent from Managed Devices tab.
+#### Policy
+Configure monitoring solution on agents, creates servers and agent thresholds, sets polling intervals, monitoring, data or event collection or both, polling interval, thresholds, and where it's filtered.
+- Managed from TS Console only.
+- Monitoring policy is mandatory, staging and blackout are not.
+- Decides everything about 
+- Blackout policy uses configured time frames.
+- Supports instace supression from being forwarded to TSIM, but can still be forwarded to TS Console by mapping them to the associated 'Device' level.
+
+## TSOM Presentation (Temp)
+The product components that you can download and install are determined by the entitlements of your TrueSight Operations Management license. 
