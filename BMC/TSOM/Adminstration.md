@@ -64,3 +64,63 @@ Configure monitoring solution on agents, creates servers and agent thresholds, s
 
 ## TSOM Presentation (Temp)
 The product components that you can download and install are determined by the entitlements of your TrueSight Operations Management license. 
+
+- Atrium SSO => RSSO @TS v11.0
+    - Must be installed and completely configured before installing the rest of components or upgrading existing TSOM, must by installed on it's own server and ready to go first.
+    - Internal users and groups can be migrated, LDAP/AD users can't.
+    - TSPS upgrade to v11 supports a seamless switch, just configure it like before.
+    - Supports HA
+    - Can upgrade onething at a time, ex: TSIM: v10.7 and 10.5 are supported with TSPS v11 and RSSO.
+    - RSSO from 9.1.03.001 are version compatible with TS.
+    - Requirements:
+        - Browsers compatible versions
+        - Tomcat security recommendations.
+        - DB: see reqs 
+    - Components architecture.
+        - Agent:
+            - Protects resources by auth, redirects unauth reqs to SSO server web app.
+            - Define users by domain
+            - Controls used RSSO server in multi.
+
+
+## Documentation
+### TSOM
+TrueSight Operations Management enables IT departments to monitor performance and availability of the infrastructure and applications that comprise their services, monitor events coming from the infrastructure devices, and monitor transactions from the applications that enable the services they deliver.
+- Features
+    - Monitoring:	IT Operations personnel use the monitoring views to monitor the infrastructure and application health.
+    - Dashboard: Executives: and IT Operations personnel use dashboards to monitor the environment from a specialized view, such as a set of applications or performance graphs related to a critical offering or customer.
+    - Configuration:	Solution Administrators and specialists configure the data collected from the component products and the applications monitored.
+    - Administration:	Solution Administrators configure the component products and integrations to the Presentation Server. The administration functions also include role-based access control to data and features.
+
+### TSPS
+TrueSight Presentation Server hosts the web-based TrueSight console functions and consumes data from various TrueSight products to provide a consolidated set of views for monitoring the infrastructure, real and synthetic applications, and capacity planning. In addition to data presentation, the TrueSight Presentation Server performs functions such as role-based access control and data management functions such as storage and persistence.
+
+### RSSO
+- Configure usage of authenticated types:
+    - Install the Remedy Single Sign-On server and configure it with an authentication server such as LDAP/AD or SAMLv2.
+    - Create the required tenants (realms), user groups, and users on the Remedy Single Sign-On Admin console.
+    - Integrate the Remedy Single Sign-On server with the TrueSight Presentation Server during the TrueSight Presentation Server installation or upgrade.
+
+## TSOM Architecture
+#### TSIM
+enables event management, service impact management, performance monitoring, and performance analytics.
+
+Infrastructure Management interfaces:	TrueSight Infrastructure Management provides additional interfaces for monitoring the data collected and processed by this system and for configuring and customizing the system.
+	
+Infrastructure Management Server:	The Infrastructure Management Server receives events and data from the following sources:
+
+    PATROL Agents
+    Event Management Cells
+    Third-party event and data sources
+After the Infrastructure Management Server collects this information, it processes events and data using a powerful analytics engine and additional event processing instructions stored in its database. The Infrastructure Management Server can also leverage a service model (built within the Infrastructure Management Server or published from the Atrium CMDB) to map data and events in context with business services. You can deploy one or more Infrastructure Management servers. 
+
+Integration Service hosts: The Integration Service manages events from event sources such as PATROL Agents, event adapters, and SNMP traps, and forwards performance data to the Infrastructure Management Server. 	Infrastructure Management Integration Service Open link
+
+Event and performance data: Events are collected from the following sources:
+    PATROL – PATROL Agents can be configured to generate events about metrics. As a best practice, the PATROL Agent is configured to generate nonperformance, availability-related events, binary events, and events from the Knowledge Module (KM).
+    TrueSight Infrastructure Management Server – The TrueSight Infrastructure Management Server can be configured to generate performance-related events.
+
+    Adapters – Events from other sources can be processed by event adapters such as SNMP adapters and log file adapters. All events from various sources are sent to event processing cells for correlation, deduplication, filtering, normalization, and enrichment.
+
+Performance data is collected from PATROL Agents or from other sources such as BMC Portal and Microsoft System Center Operations Manager, using the appropriate adapters. Not all performance data has to be forwarded to the Infrastructure Management Server. Performance data can be collected and stored at the PATROL Agents and visualized as trends in the Infrastructure Management console without streaming the data to the Infrastructure Management Server.
+	
