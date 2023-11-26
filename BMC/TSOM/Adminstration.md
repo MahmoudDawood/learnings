@@ -124,3 +124,6 @@ Event and performance data: Events are collected from the following sources:
 
 Performance data is collected from PATROL Agents or from other sources such as BMC Portal and Microsoft System Center Operations Manager, using the appropriate adapters. Not all performance data has to be forwarded to the Infrastructure Management Server. Performance data can be collected and stored at the PATROL Agents and visualized as trends in the Infrastructure Management console without streaming the data to the Infrastructure Management Server.
 	
+
+----------------
+Event: change in state of a monitored object, IM provides tools to generate events to identify prolematic devices, cirtical events and diagnose problems. {Critical, Major, Minor, or Informational}

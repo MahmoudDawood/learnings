@@ -786,7 +786,7 @@ spec:
 ```
 
 ### Network Policies
-Kubernetes object that limits networking on a pod with source, connection type, port. Supported by **some** kubernetes network solutions.
+Kubernetes object that limits networking on a pod with source, connection type, port. Supported by **some** kubernetes network solutions -not Flannel-.
 - `kubectl get networkpolicy` aka `netpol`
 ```
 apiVersion: networking.k8s.io/v1
@@ -796,29 +796,28 @@ spec:
   podSelector: (Where the policy applies)
     matchLabels:
       key: value
-  policyTypes: (Only specified types are applied, else it's all enabled by default)
-  - Ingress {Ingress: allows receiving requests and sending back it's response}
+  policyTypes: (Once it's created only specified types are applied, else it's all enabled by default)
+  - Ingress {Ingress: allows receiving requests and sending back it's response automatically}
   - Egress
   ingress:
-    - from:
-        - podSelector: 
-            matchLabels:
+    - from: (to -in egress requests-)
+      - podSelector: 
+          matchLabels:
               name:
-          namespaceSelector: (As it's not a separate rule defined by '-', it applies as AND to the previous rule)
-            matchLabels: 
+        namespaceSelector: (As the role doens't start by a '-' , it applies as AND to the previous rule)
+          matchLabels: 
               name:
+      ports:
+        - protocol: TCP
+            port:
+
+      - ipBlock: (allow external IP to policy)
+          cidr: EXTERNAL-IP
       ports:
         - protocol: TCP
           port:
 
-    - from
-        - ipBlock: (allow external IP to policy)
-            cidr: EXTERNAL-IP
-      ports:
-        - protocol: TCP
-          port:
-
-  egress:
+    egress:
     ....
 ```
 
