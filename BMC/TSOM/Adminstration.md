@@ -10,12 +10,11 @@ Restrict access to data and operations
 - Change admin user and password
 - Define cookie domain, session timeout and ongoing sessions.
 
-
 - **Removing a user from group or deleting it from RSSO**
-    - His polices are disabled after 30 mins
-    - Configuration is removed from affected PATROL agents, instances are marked for deletion
-    - Dashboards created by him are deleted within 30 mins.
-- Check for and remove associations from monitoring policies and authorization profiles, consider viewing shared dashboards.
+  - His polices are disabled after 30 mins
+  - Configuration is removed from affected PATROL agents, instances are marked for deletion
+  - Dashboards created by him are deleted within 30 mins.
+- Remove associations from monitoring policies and authorization profiles, consider viewing shared dashboards.
 
 - Group cannot belong to two different realms.
  
